@@ -1,8 +1,8 @@
-use std::time::Duration;
-use serialport::SerialPort;
-use anyhow::{Context, Result};
 use crate::netlist::{NetlistEntry, NodeFile};
 use crate::parser::parse_netlist;
+use anyhow::{Context, Result};
+use serialport::SerialPort;
+use std::time::Duration;
 
 pub struct Device {
     port: Box<dyn SerialPort>,
@@ -10,9 +10,11 @@ pub struct Device {
 
 impl Device {
     pub fn new(path: String) -> Result<Self> {
-        let port = serialport::new(path.as_str(), 57600).timeout(Duration::from_secs(5)).open()
+        let port = serialport::new(path.as_str(), 57600)
+            .timeout(Duration::from_secs(5))
+            .open()
             .with_context(|| format!("Failed to open serial port: {}", path))?;
-       Ok(Self { port })
+        Ok(Self { port })
     }
 
     pub fn netlist(&mut self) -> Result<Vec<NetlistEntry>> {

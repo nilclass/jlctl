@@ -1,11 +1,11 @@
-use actix_web::{get, put, post, delete, web, App, HttpServer, Responder, Result, ResponseError, middleware::Logger};
+use crate::{device::Device, netlist::NodeFile};
+use actix_web::{
+    delete, get, middleware::Logger, post, put, web, App, HttpServer, Responder, ResponseError,
+    Result,
+};
+use env_logger::Env;
 use log::info;
 use std::sync::{Arc, Mutex};
-use env_logger::Env;
-use crate::{
-    device::Device,
-    netlist::NodeFile,
-};
 
 struct Shared {
     device: Arc<Mutex<Device>>,
@@ -30,13 +30,22 @@ async fn netlist(shared: web::Data<Shared>) -> Result<impl Responder> {
 
 #[get("/bridges")]
 async fn bridges(shared: web::Data<Shared>) -> Result<impl Responder> {
-    let nodefile: NodeFile = shared.device.lock().unwrap().netlist().map_err(Error)?.into();
+    let nodefile: NodeFile = shared
+        .device
+        .lock()
+        .unwrap()
+        .netlist()
+        .map_err(Error)?
+        .into();
 
     Ok(web::Json(nodefile))
 }
 
 #[put("/bridges")]
-async fn add_bridges(shared: web::Data<Shared>, json: web::Json<NodeFile>) -> Result<impl Responder> {
+async fn add_bridges(
+    shared: web::Data<Shared>,
+    json: web::Json<NodeFile>,
+) -> Result<impl Responder> {
     let mut device = shared.device.lock().unwrap();
     let mut nodefile: NodeFile = device.netlist().map_err(Error)?.into();
 
@@ -47,7 +56,10 @@ async fn add_bridges(shared: web::Data<Shared>, json: web::Json<NodeFile>) -> Re
 }
 
 #[delete("/bridges")]
-async fn remove_bridges(shared: web::Data<Shared>, json: web::Json<NodeFile>) -> Result<impl Responder> {
+async fn remove_bridges(
+    shared: web::Data<Shared>,
+    json: web::Json<NodeFile>,
+) -> Result<impl Responder> {
     let mut device = shared.device.lock().unwrap();
     let mut nodefile: NodeFile = device.netlist().map_err(Error)?.into();
 
@@ -59,7 +71,12 @@ async fn remove_bridges(shared: web::Data<Shared>, json: web::Json<NodeFile>) ->
 
 #[post("/bridges/clear")]
 async fn clear_bridges(shared: web::Data<Shared>) -> Result<impl Responder> {
-    shared.device.lock().unwrap().clear_nodefile().map_err(Error)?;
+    shared
+        .device
+        .lock()
+        .unwrap()
+        .clear_nodefile()
+        .map_err(Error)?;
     Ok(web::Json(true))
 }
 
@@ -83,8 +100,8 @@ pub async fn start(device: Device, listen_address: &str) -> std::io::Result<()> 
             .service(remove_bridges)
             .service(clear_bridges)
     })
-        .workers(2)
-        .bind(listen_address)?
-        .run()
-        .await
+    .workers(2)
+    .bind(listen_address)?
+    .run()
+    .await
 }

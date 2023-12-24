@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[allow(dead_code)]
 #[derive(Debug, Serialize, PartialEq)]
@@ -69,7 +69,7 @@ impl Node {
             use Node::*;
             match s {
                 "GND" => Ok(GND),
-                "SUPPLY_5V" => Ok(SUPPLY_5V),                                        
+                "SUPPLY_5V" => Ok(SUPPLY_5V),
                 "SUPPLY_3V3" => Ok(SUPPLY_3V3),
                 "DAC_0_5V" => Ok(DAC_0_5V),
                 "DAC_1_8V" => Ok(DAC_1_8V),
@@ -113,7 +113,8 @@ impl Node {
                 "I_NEG" => Ok(I_N),
                 "I_POS" => Ok(I_P),
 
-                _ => Err(anyhow::anyhow!("Unknown node: {}", s))}
+                _ => Err(anyhow::anyhow!("Unknown node: {}", s)),
+            }
         }
     }
 }
@@ -121,7 +122,8 @@ impl Node {
 impl Serialize for Node {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer {
+        S: serde::Serializer,
+    {
         match self {
             Node::Column(n) => serializer.serialize_u8(*n),
             other => serializer.serialize_str(other.to_string().as_str()),
@@ -132,7 +134,8 @@ impl Serialize for Node {
 impl<'de> Deserialize<'de> for Node {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de> {
+        D: serde::Deserializer<'de>,
+    {
         deserializer.deserialize_any(NodeVisitor)
     }
 }
@@ -158,7 +161,7 @@ impl<'de> serde::de::Visitor<'de> for NodeVisitor {
         E: serde::de::Error,
     {
         Node::parse(v).map_err(|e| E::custom(e.to_string()))
-    }    
+    }
 }
 
 impl std::fmt::Display for Node {
@@ -170,8 +173,7 @@ impl std::fmt::Display for Node {
     }
 }
 
-#[derive(Copy, Clone)]
-#[derive(Serialize, Deserialize)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Connection(pub Node, pub Node);
 
 impl std::fmt::Display for Connection {
@@ -182,7 +184,9 @@ impl std::fmt::Display for Connection {
 
 impl Connection {
     pub fn parse(source: &str) -> anyhow::Result<Self> {
-        let (a, b) = source.split_once("-").ok_or(anyhow::anyhow!("Invalid segment: {}", source))?;
+        let (a, b) = source
+            .split_once("-")
+            .ok_or(anyhow::anyhow!("Invalid segment: {}", source))?;
         Ok(Connection(Node::parse(a)?, Node::parse(b)?))
     }
 }
@@ -255,8 +259,9 @@ impl From<Vec<NetlistEntry>> for NodeFile {
 
         let mut connections = vec![];
         for bridge in bridges {
-            if bridge == "0-0" { // this is used as a placeholder
-                continue
+            if bridge == "0-0" {
+                // this is used as a placeholder
+                continue;
             }
             connections.push(Connection::parse(bridge).expect("invalid bridge"));
         }
@@ -276,16 +281,23 @@ mod tests {
 
     #[test]
     fn test_format_connection() {
-        assert_eq!(Connection(Node::SUPPLY_5V, Node::col(33).unwrap()).to_string(), "SUPPLY_5V-33".to_string());
+        assert_eq!(
+            Connection(Node::SUPPLY_5V, Node::col(33).unwrap()).to_string(),
+            "SUPPLY_5V-33".to_string()
+        );
     }
 
     #[test]
     fn test_format_node_file() {
-        assert_eq!(NodeFile(vec![
-            Connection(Node::SUPPLY_5V, Node::col(33).unwrap()),
-            Connection(Node::col(44).unwrap(), Node::col(27).unwrap()),
-            Connection(Node::col(12).unwrap(), Node::col(13).unwrap()),
-        ]).to_string(), "SUPPLY_5V-33,44-27,12-13".to_string());
+        assert_eq!(
+            NodeFile(vec![
+                Connection(Node::SUPPLY_5V, Node::col(33).unwrap()),
+                Connection(Node::col(44).unwrap(), Node::col(27).unwrap()),
+                Connection(Node::col(12).unwrap(), Node::col(13).unwrap()),
+            ])
+            .to_string(),
+            "SUPPLY_5V-33,44-27,12-13".to_string()
+        );
     }
 
     #[test]

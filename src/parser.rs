@@ -1,15 +1,16 @@
-use std::io::{Read, BufReader, BufRead};
-use nom::IResult;
+use crate::netlist::NetlistEntry;
+use nom::bytes::complete::{take_till, take_while};
 use nom::combinator::map;
 use nom::sequence::tuple;
-use nom::bytes::complete::{take_while, take_till};
-use crate::netlist::NetlistEntry;
+use nom::IResult;
+use std::io::{BufRead, BufReader, Read};
 
 pub fn parse_netlist<R: Read>(r: &mut R) -> Vec<NetlistEntry> {
-    let mut lines = BufReader::new(r).lines().map(|l| {
-        l.unwrap().trim().to_owned()
-    }).peekable();
-    lines.find(|l| {l == &"netlist"}).unwrap();
+    let mut lines = BufReader::new(r)
+        .lines()
+        .map(|l| l.unwrap().trim().to_owned())
+        .peekable();
+    lines.find(|l| l == &"netlist").unwrap();
     lines.find(|l| l.starts_with("Index")).unwrap();
 
     let mut entries = vec![];
@@ -29,7 +30,7 @@ pub fn parse_netlist<R: Read>(r: &mut R) -> Vec<NetlistEntry> {
         entries.push(entry);
     }
 
-    return entries
+    return entries;
 }
 
 fn parse_tabs(input: &str) -> IResult<&str, &str> {
@@ -37,10 +38,7 @@ fn parse_tabs(input: &str) -> IResult<&str, &str> {
 }
 
 fn parse_string(input: &str) -> IResult<&str, String> {
-    map(
-        take_till(|c| c == '\t'),
-        |s: &str| s.to_string(),
-    )(input)
+    map(take_till(|c| c == '\t'), |s: &str| s.to_string())(input)
 }
 
 fn parse_netlist_line(input: &str) -> IResult<&str, NetlistEntry> {
@@ -56,9 +54,13 @@ fn parse_netlist_line(input: &str) -> IResult<&str, NetlistEntry> {
             parse_tabs,
             parse_string,
         )),
-        |(index, _, name, _, number, _, nodes, _, bridges)| {
-            NetlistEntry { index, name, number, nodes, bridges }
-        }
+        |(index, _, name, _, number, _, nodes, _, bridges)| NetlistEntry {
+            index,
+            name,
+            number,
+            nodes,
+            bridges,
+        },
     )(input)
 }
 
@@ -133,64 +135,67 @@ Index	Name		Number		Nodes			Bridges
     fn test_parse_netlist_initial() {
         let mut reader = Cursor::new(INITIAL_NETLIST);
         let netlist = parse_netlist(&mut reader);
-        assert_eq!(netlist, vec![
-            NetlistEntry {
-                index: 0,
-                name: "Empty Net".to_string(),
-                number: 127,
-                nodes: "EMPTY_NET".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 1,
-                name: "GND".to_string(),
-                number: 1,
-                nodes: "GND".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 2,
-                name: "+5V".to_string(),
-                number: 2,
-                nodes: "5V".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 3,
-                name: "+3.3V".to_string(),
-                number: 3,
-                nodes: "3V3".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 4,
-                name: "DAC 0".to_string(),
-                number: 4,
-                nodes: "DAC_0".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 5,
-                name: "DAC 1".to_string(),
-                number: 5,
-                nodes: "DAC_1".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 6,
-                name: "I Sense +".to_string(),
-                number: 6,
-                nodes: "I_POS".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 7,
-                name: "I Sense -".to_string(),
-                number: 7,
-                nodes: "I_NEG".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-        ])
+        assert_eq!(
+            netlist,
+            vec![
+                NetlistEntry {
+                    index: 0,
+                    name: "Empty Net".to_string(),
+                    number: 127,
+                    nodes: "EMPTY_NET".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 1,
+                    name: "GND".to_string(),
+                    number: 1,
+                    nodes: "GND".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 2,
+                    name: "+5V".to_string(),
+                    number: 2,
+                    nodes: "5V".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 3,
+                    name: "+3.3V".to_string(),
+                    number: 3,
+                    nodes: "3V3".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 4,
+                    name: "DAC 0".to_string(),
+                    number: 4,
+                    nodes: "DAC_0".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 5,
+                    name: "DAC 1".to_string(),
+                    number: 5,
+                    nodes: "DAC_1".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 6,
+                    name: "I Sense +".to_string(),
+                    number: 6,
+                    nodes: "I_POS".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 7,
+                    name: "I Sense -".to_string(),
+                    number: 7,
+                    nodes: "I_NEG".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+            ]
+        )
     }
 
     #[test]
@@ -198,77 +203,80 @@ Index	Name		Number		Nodes			Bridges
         let mut reader = Cursor::new(NETLIST_WITH_BRIDGES);
         let netlist = parse_netlist(&mut reader);
 
-        assert_eq!(netlist, vec![
-            NetlistEntry {
-                index: 0,
-                name: "Empty Net".to_string(),
-                number: 127,
-                nodes: "EMPTY_NET".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 1,
-                name: "GND".to_string(),
-                number: 1,
-                nodes: "GND,17".to_string(),
-                bridges: "{GND-17}".to_string(),
-            },
-            NetlistEntry {
-                index: 2,
-                name: "+5V".to_string(),
-                number: 2,
-                nodes: "5V,13".to_string(),
-                bridges: "{5V-13}".to_string(),
-            },
-            NetlistEntry {
-                index: 3,
-                name: "+3.3V".to_string(),
-                number: 3,
-                nodes: "3V3".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 4,
-                name: "DAC 0".to_string(),
-                number: 4,
-                nodes: "DAC_0".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 5,
-                name: "DAC 1".to_string(),
-                number: 5,
-                nodes: "DAC_1".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 6,
-                name: "I Sense +".to_string(),
-                number: 6,
-                nodes: "I_POS".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 7,
-                name: "I Sense -".to_string(),
-                number: 7,
-                nodes: "I_NEG".to_string(),
-                bridges: "{0-0}".to_string(),
-            },
-            NetlistEntry {
-                index: 8,
-                name: "Net 8".to_string(),
-                number: 8,
-                nodes: "12,24".to_string(),
-                bridges: "{12-24}".to_string(),
-            },
-            NetlistEntry {
-                index: 9,
-                name: "Net 9".to_string(),
-                number: 9,
-                nodes: "3,60".to_string(),
-                bridges: "{3-60}".to_string(),
-            },
-        ]);
+        assert_eq!(
+            netlist,
+            vec![
+                NetlistEntry {
+                    index: 0,
+                    name: "Empty Net".to_string(),
+                    number: 127,
+                    nodes: "EMPTY_NET".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 1,
+                    name: "GND".to_string(),
+                    number: 1,
+                    nodes: "GND,17".to_string(),
+                    bridges: "{GND-17}".to_string(),
+                },
+                NetlistEntry {
+                    index: 2,
+                    name: "+5V".to_string(),
+                    number: 2,
+                    nodes: "5V,13".to_string(),
+                    bridges: "{5V-13}".to_string(),
+                },
+                NetlistEntry {
+                    index: 3,
+                    name: "+3.3V".to_string(),
+                    number: 3,
+                    nodes: "3V3".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 4,
+                    name: "DAC 0".to_string(),
+                    number: 4,
+                    nodes: "DAC_0".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 5,
+                    name: "DAC 1".to_string(),
+                    number: 5,
+                    nodes: "DAC_1".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 6,
+                    name: "I Sense +".to_string(),
+                    number: 6,
+                    nodes: "I_POS".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 7,
+                    name: "I Sense -".to_string(),
+                    number: 7,
+                    nodes: "I_NEG".to_string(),
+                    bridges: "{0-0}".to_string(),
+                },
+                NetlistEntry {
+                    index: 8,
+                    name: "Net 8".to_string(),
+                    number: 8,
+                    nodes: "12,24".to_string(),
+                    bridges: "{12-24}".to_string(),
+                },
+                NetlistEntry {
+                    index: 9,
+                    name: "Net 9".to_string(),
+                    number: 9,
+                    nodes: "3,60".to_string(),
+                    bridges: "{3-60}".to_string(),
+                },
+            ]
+        );
     }
 }

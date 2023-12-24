@@ -1,12 +1,12 @@
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use shadow_rs::shadow;
-use anyhow::Context;
 
 shadow!(build);
 
+mod device;
 mod netlist;
 mod parser;
-mod device;
 mod server;
 
 #[derive(Debug, Parser)]
@@ -73,33 +73,31 @@ fn main() -> anyhow::Result<()> {
             serde_json::to_writer_pretty(std::io::stdout(), &netlist)?;
             println!("");
         }
-        Command::Bridge(bridge_command) => {
-            match bridge_command {
-                BridgeCommand::Get => {
-                    println!("{}", netlist::NodeFile::from(device.netlist()?));
-                }
-                BridgeCommand::Add { bridges } => {
-                    let mut nodefile = netlist::NodeFile::from(device.netlist()?);
-                    let parsed = netlist::NodeFile::parse(&bridges)
-                        .with_context(|| format!("Parsing bridges from argument"))?;
-                    nodefile.add_from(parsed);
-                    device.send_nodefile(&nodefile)?;
-                }
-                BridgeCommand::Remove { bridges } => {
-                    let mut nodefile = netlist::NodeFile::from(device.netlist()?);
-                    let parsed = netlist::NodeFile::parse(&bridges)
-                        .with_context(|| format!("Parsing bridges from argument"))?;
-                    nodefile.remove_from(parsed);
-                    device.send_nodefile(&nodefile)?;
-                }
-                BridgeCommand::Clear => {
-                    device.clear_nodefile()?;
-                }
+        Command::Bridge(bridge_command) => match bridge_command {
+            BridgeCommand::Get => {
+                println!("{}", netlist::NodeFile::from(device.netlist()?));
             }
-        }
+            BridgeCommand::Add { bridges } => {
+                let mut nodefile = netlist::NodeFile::from(device.netlist()?);
+                let parsed = netlist::NodeFile::parse(&bridges)
+                    .with_context(|| format!("Parsing bridges from argument"))?;
+                nodefile.add_from(parsed);
+                device.send_nodefile(&nodefile)?;
+            }
+            BridgeCommand::Remove { bridges } => {
+                let mut nodefile = netlist::NodeFile::from(device.netlist()?);
+                let parsed = netlist::NodeFile::parse(&bridges)
+                    .with_context(|| format!("Parsing bridges from argument"))?;
+                nodefile.remove_from(parsed);
+                device.send_nodefile(&nodefile)?;
+            }
+            BridgeCommand::Clear => {
+                device.clear_nodefile()?;
+            }
+        },
         Command::Server { listen } => {
             server::start(device, &listen)?;
-        },
+        }
     }
     Ok(())
 }

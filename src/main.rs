@@ -7,6 +7,7 @@ shadow!(build);
 mod netlist;
 mod parser;
 mod device;
+mod server;
 
 #[derive(Debug, Parser)]
 #[command(about = "CLI for the jumperless breadboard", version = build::CLAP_LONG_VERSION)]
@@ -27,11 +28,12 @@ enum Command {
     #[command(subcommand)]
     Bridge(BridgeCommand),
 
-    // #[command()]
-    // Server {
-    //     #[arg(short, default_value = ":8080")]
-    //     listen: String,
-    // },
+    /// Start HTTP server
+    #[command()]
+    Server {
+        #[arg(long, short, default_value = "localhost:8080")]
+        listen: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -40,16 +42,18 @@ enum BridgeCommand {
     #[command()]
     Get,
 
-    /// Add a new bridge
+    /// Add new bridge(s)
     #[command()]
     Add {
+        /// Bridge(s) to add, e.g. "GND-17" or "12-17,14-29"
         #[arg()]
         bridges: String,
     },
 
-    /// Remove given bridge
+    /// Remove given bridge(s)
     #[command()]
     Remove {
+        /// Bridge(s) to remove, e.g. "GND-17" or "12-17,14-29"
         #[arg()]
         bridges: String,
     },
@@ -79,21 +83,23 @@ fn main() -> anyhow::Result<()> {
                     let parsed = netlist::NodeFile::parse(&bridges)
                         .with_context(|| format!("Parsing bridges from argument"))?;
                     nodefile.add_from(parsed);
-                    device.send_nodefile(nodefile)?;
+                    device.send_nodefile(&nodefile)?;
                 }
                 BridgeCommand::Remove { bridges } => {
                     let mut nodefile = netlist::NodeFile::from(device.netlist()?);
                     let parsed = netlist::NodeFile::parse(&bridges)
                         .with_context(|| format!("Parsing bridges from argument"))?;
                     nodefile.remove_from(parsed);
-                    device.send_nodefile(nodefile)?;
+                    device.send_nodefile(&nodefile)?;
                 }
                 BridgeCommand::Clear => {
                     device.clear_nodefile()?;
                 }
             }
         }
-        // Command::Server { .. } => todo!(),
+        Command::Server { listen } => {
+            server::start(device, &listen)?;
+        },
     }
     Ok(())
 }

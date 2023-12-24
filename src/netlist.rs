@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 #[allow(dead_code)]
 #[derive(Debug, Serialize, PartialEq)]
@@ -118,6 +118,49 @@ impl Node {
     }
 }
 
+impl Serialize for Node {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+        match self {
+            Node::Column(n) => serializer.serialize_u8(*n),
+            other => serializer.serialize_str(other.to_string().as_str()),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Node {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de> {
+        deserializer.deserialize_any(NodeVisitor)
+    }
+}
+
+struct NodeVisitor;
+
+impl<'de> serde::de::Visitor<'de> for NodeVisitor {
+    type Value = Node;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("an integer between 1 and 60 or a string describing a known node")
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Node::col(v as u8).ok_or_else(|| E::custom(format!("Node number out of range: {}", v)))
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Node::parse(v).map_err(|e| E::custom(e.to_string()))
+    }    
+}
+
 impl std::fmt::Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -128,7 +171,8 @@ impl std::fmt::Display for Node {
 }
 
 #[derive(Copy, Clone)]
-pub struct Connection(Node, Node);
+#[derive(Serialize, Deserialize)]
+pub struct Connection(pub Node, pub Node);
 
 impl std::fmt::Display for Connection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -149,6 +193,7 @@ impl PartialEq for Connection {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct NodeFile(Vec<Connection>);
 
 impl NodeFile {

@@ -20,7 +20,7 @@ impl Device {
         Ok(parse_netlist(&mut self.port))
     }
 
-    pub fn send_nodefile(&mut self, nodefile: NodeFile) -> Result<()> {
+    pub fn send_nodefile(&mut self, nodefile: &NodeFile) -> Result<()> {
         self.port.write(b"f{\n")?;
         self.port.write(nodefile.to_string().as_bytes())?;
         self.port.write(b",\n}\n")?;

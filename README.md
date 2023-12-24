@@ -18,8 +18,10 @@ You'll find the binary in `./target/release/jlctl`. Copy it wherever you like!
 
 ## Usage
 
+### Help
+
 ```
-$ jlctl
+$ jlctl help
 CLI for the jumperless breadboard
 
 Usage: jlctl [OPTIONS] <COMMAND>
@@ -33,6 +35,24 @@ Options:
   -p <PORT>      [default: /dev/ttyACM0]
   -h, --help     Print help
   -V, --version  Print version
+```
+
+To get help for a subcommand, run `jlctl help <command>`, e.g.
+```
+$ jlctl help bridge
+Interact with bridges
+
+Usage: jlctl bridge <COMMAND>
+
+Commands:
+  get     Get current list of bridges
+  add     Add new bridge(s)
+  remove  Remove given bridge(s)
+  clear   Remove all bridges
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
 ```
 
 ### `jlctl netlist`
@@ -108,4 +128,108 @@ Remove all bridges. Sends an empty nodefile to the jumperless.
 $ jlctl bridge clear
 $ jlctl bridge get
 
+```
+
+## HTTP Server
+
+`jlctl` includes an HTTP server, exposing the same functionality as the CLI itself.
+
+To start it, run
+```
+jlctl server
+```
+
+By default the server listens on `localhost:8080`. To change that, pass `--listen`:
+```
+jlctl server --listen 0.0.0.0:12345
+```
+
+### Netlist
+
+#### `GET /netlist`
+
+Retrieve current netlist
+
+Example (output adjusted here for readability):
+```
+$ curl http://localhost:8080/netlist
+[
+  {
+    "index": 0,
+    "name": "Empty Net",
+    "number": 127,
+    "nodes": "EMPTY_NET",
+    "bridges": "{0-0}"
+  },
+  {
+    "index": 1,
+    "name": "GND",
+    "number": 1,
+    "nodes": "GND",
+    "bridges": "{0-0}"
+  },
+  {
+    "index": 2,
+    "name": "+5V",
+    "number": 2,
+    "nodes": "5V",
+    "bridges": "{0-0}"
+  },
+  ...
+]
+```
+
+### Bridges
+
+#### Format
+
+The endpoints document below produce and consume JSON formatted bridges.
+
+The JSON format is pretty simple:
+- A **Node** is either:
+  - a **number**: must be in the 1..60 (inclusive) range. Specifies one of the columns on the breadboard
+    - Examples: `7`, `24`
+  - a **string**: must be one of the recognized special node names. Check the implementation of `Node::parse` in `src/netlist.rs` for a list of supported values.
+    - Examples: `GND`, `5V`, `SUPPLY_5V`
+- A **Bridge** is an array containing exactly two Nodes
+  - Examples: `[7, 24]`, `["GND", 14]`, `["SUPPLY_5V", "GND"]` (🤯)
+
+#### `GET /bridges`
+
+Retrieve current list of bridges
+
+Example:
+```
+$ curl http://localhost:8080/bridges
+[[14,"GND"],[15,"GND"],[17,23]]
+```
+
+#### `PUT /bridges`
+
+Add the specified bridges
+
+Example:
+```
+$ curl http://localhost:8080/bridges -XPUT -H content-type:application/json --data '[[17,23]]'
+[[17,23]]
+```
+
+#### `DELETE /bridges`
+
+Remove the specified bridges
+
+Example:
+```
+$ curl http://localhost:8080/bridges -XDELETE -H content-type:application/json --data '[[17,23]]'
+[]
+```
+
+#### `POST /bridges/clear`
+
+Remove *all* bridges
+
+Example:
+```
+$ curl http://localhost:8080/bridges/clear -XPOST
+true
 ```

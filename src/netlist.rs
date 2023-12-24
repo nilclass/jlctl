@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use serde::Serialize;
 
 #[allow(dead_code)]
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq)]
 pub struct NetlistEntry {
     pub index: u32,
     pub name: String,
@@ -103,7 +103,17 @@ impl Node {
                 "A7" => Ok(A7),
                 "RESET" => Ok(RESET),
                 "AREF" => Ok(AREF),
-                _ => Err(anyhow::anyhow!("Unknown node"))}
+
+                // ALIASES: these are names used for the nodes in the netlist output.
+                //   They are not supported as input for nodefiles.
+                "5V" => Ok(SUPPLY_5V),
+                "3V3" => Ok(SUPPLY_3V3),
+                "DAC_0" => Ok(DAC_0_5V),
+                "DAC_1" => Ok(DAC_1_8V),
+                "I_NEG" => Ok(I_N),
+                "I_POS" => Ok(I_P),
+
+                _ => Err(anyhow::anyhow!("Unknown node: {}", s))}
         }
     }
 }
@@ -117,6 +127,7 @@ impl std::fmt::Display for Node {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct Connection(Node, Node);
 
 impl std::fmt::Display for Connection {
@@ -150,15 +161,29 @@ impl NodeFile {
     }
 
     pub fn add_connection(&mut self, connection: Connection) {
-        self.0.push(connection)
+        if !self.has(connection) {
+            self.0.push(connection)
+        }
     }
 
     pub fn remove_connection(&mut self, connection: Connection) {
         self.0.retain(|c| *c != connection)
     }
 
-    pub fn empty() -> Self {
-        NodeFile(vec![])
+    pub fn add_from(&mut self, other: NodeFile) {
+        for c in other.0 {
+            self.add_connection(c);
+        }
+    }
+
+    pub fn remove_from(&mut self, other: NodeFile) {
+        for c in other.0 {
+            self.remove_connection(c);
+        }
+    }
+
+    fn has(&self, connection: Connection) -> bool {
+        self.0.iter().find(|c| **c == connection).is_some()
     }
 }
 
@@ -216,5 +241,36 @@ mod tests {
             Connection(Node::col(44).unwrap(), Node::col(27).unwrap()),
             Connection(Node::col(12).unwrap(), Node::col(13).unwrap()),
         ]).to_string(), "SUPPLY_5V-33,44-27,12-13".to_string());
+    }
+
+    #[test]
+    fn test_nodefile_add_and_remove() {
+        let mut file = NodeFile(vec![]);
+        assert_eq!(file.to_string(), "".to_string());
+        file.add_connection(Connection::parse("7-13").unwrap());
+        assert_eq!(file.to_string(), "7-13".to_string());
+        file.add_connection(Connection::parse("14-22").unwrap());
+        assert_eq!(file.to_string(), "7-13,14-22".to_string());
+        // duplicate
+        file.add_connection(Connection::parse("14-22").unwrap());
+        assert_eq!(file.to_string(), "7-13,14-22".to_string());
+        // also duplicate (different order)
+        file.add_connection(Connection::parse("22-14").unwrap());
+        assert_eq!(file.to_string(), "7-13,14-22".to_string());
+
+        // add a few more, from nodefile
+        file.add_from(NodeFile::parse("11-19,12-14,19-33").unwrap());
+        assert_eq!(file.to_string(), "7-13,14-22,11-19,12-14,19-33".to_string());
+
+        // remove one
+        file.remove_connection(Connection::parse("7-13").unwrap());
+        assert_eq!(file.to_string(), "14-22,11-19,12-14,19-33".to_string());
+        // remove one (different order)
+        file.remove_connection(Connection::parse("14-12").unwrap());
+        assert_eq!(file.to_string(), "14-22,11-19,19-33".to_string());
+
+        // remove a few more, from nodefile
+        file.remove_from(NodeFile::parse("33-19,14-22").unwrap());
+        assert_eq!(file.to_string(), "11-19".to_string());
     }
 }

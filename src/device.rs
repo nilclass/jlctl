@@ -26,4 +26,9 @@ impl Device {
         self.port.write(b",\n}\n")?;
         Ok(())
     }
+
+    pub fn clear_nodefile(&mut self) -> Result<()> {
+        self.port.write(b"f{\n}\n")?;
+        Ok(())
+    }
 }

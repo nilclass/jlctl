@@ -2,6 +2,11 @@
 
 `jlctl` is a command line tool for controlling @Architeuthis-Flux's awesome [Jumperless breadboard](https://github.com/Architeuthis-Flux/Jumperless/).
 
+## Features
+
+- List and modify bridges (aka connections) via the command line
+- HTTP server for doing the same
+
 ## Installation
 
 Installation is currently from source.
@@ -17,6 +22,9 @@ cargo build --release
 You'll find the binary in `./target/release/jlctl`. Copy it wherever you like!
 
 ## Usage
+
+`jlctl` needs access to the serial port of the jumperless. By default `/dev/ttyACM0` is chosen.
+Use the global `-p <port>` option to use a different serial port.
 
 ### Help
 

@@ -12,6 +12,7 @@ mod server;
 #[derive(Debug, Parser)]
 #[command(about = "CLI for the jumperless breadboard", version = build::CLAP_LONG_VERSION)]
 struct Cli {
+    /// Serial port where the Jumperless is connected
     #[arg(short, default_value = "/dev/ttyACM0")]
     port: String,
     #[command(subcommand)]

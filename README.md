@@ -37,10 +37,11 @@ Usage: jlctl [OPTIONS] <COMMAND>
 Commands:
   netlist  Print current netlist
   bridge   Interact with bridges
+  server   Start HTTP server
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-  -p <PORT>      [default: /dev/ttyACM0]
+  -p <PORT>      Serial port where the Jumperless is connected [default: /dev/ttyACM0]
   -h, --help     Print help
   -V, --version  Print version
 ```

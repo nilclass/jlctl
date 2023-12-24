@@ -13,6 +13,7 @@ pub struct NetlistEntry {
 }
 
 #[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Node {
     GND,
@@ -55,7 +56,7 @@ pub enum Node {
 
 impl Node {
     fn col(n: u8) -> Option<Self> {
-        if n >= 1 && n <= 60 {
+        if (1..=60).contains(&n) {
             Some(Node::Column(n))
         } else {
             None
@@ -185,7 +186,7 @@ impl std::fmt::Display for Connection {
 impl Connection {
     pub fn parse(source: &str) -> anyhow::Result<Self> {
         let (a, b) = source
-            .split_once("-")
+            .split_once('-')
             .ok_or(anyhow::anyhow!("Invalid segment: {}", source))?;
         Ok(Connection(Node::parse(a)?, Node::parse(b)?))
     }
@@ -203,7 +204,7 @@ pub struct NodeFile(Vec<Connection>);
 impl NodeFile {
     pub fn parse(source: &str) -> anyhow::Result<Self> {
         let mut connections = vec![];
-        for segment in source.split(",") {
+        for segment in source.split(',') {
             connections.push(Connection::parse(segment)?);
         }
         Ok(NodeFile(connections))
@@ -232,7 +233,7 @@ impl NodeFile {
     }
 
     fn has(&self, connection: Connection) -> bool {
-        self.0.iter().find(|c| **c == connection).is_some()
+        self.0.iter().any(|c| *c == connection)
     }
 }
 
@@ -252,7 +253,7 @@ impl From<Vec<NetlistEntry>> for NodeFile {
     fn from(netlist: Vec<NetlistEntry>) -> Self {
         let mut bridges = HashSet::new();
         for entry in &netlist {
-            for bridge in entry.bridges[1..(entry.bridges.len() - 1)].split(",") {
+            for bridge in entry.bridges[1..(entry.bridges.len() - 1)].split(',') {
                 bridges.insert(bridge);
             }
         }

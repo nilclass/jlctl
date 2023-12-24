@@ -10,16 +10,17 @@ pub fn parse_netlist<R: Read>(r: &mut R) -> Vec<NetlistEntry> {
         .lines()
         .map(|l| l.unwrap().trim().to_owned())
         .peekable();
-    lines.find(|l| l == &"netlist").unwrap();
+    lines.find(|l| l == "netlist").unwrap();
     lines.find(|l| l.starts_with("Index")).unwrap();
 
     let mut entries = vec![];
 
     while let Some(line) = lines.next() {
-        if line.len() == 0 {
+        if line.is_empty() {
             if let Some(l) = lines.peek() {
+                // second block of netlist?
                 if l.starts_with("Index") {
-                    lines.next(); // consume!
+                    lines.next(); // consume headers!
                     continue;
                 }
             }
@@ -30,7 +31,7 @@ pub fn parse_netlist<R: Read>(r: &mut R) -> Vec<NetlistEntry> {
         entries.push(entry);
     }
 
-    return entries;
+    entries
 }
 
 fn parse_tabs(input: &str) -> IResult<&str, &str> {

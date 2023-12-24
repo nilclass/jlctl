@@ -71,7 +71,7 @@ fn main() -> anyhow::Result<()> {
         Command::Netlist => {
             let netlist = device.netlist()?;
             serde_json::to_writer_pretty(std::io::stdout(), &netlist)?;
-            println!("");
+            println!();
         }
         Command::Bridge(bridge_command) => match bridge_command {
             BridgeCommand::Get => {
@@ -80,14 +80,14 @@ fn main() -> anyhow::Result<()> {
             BridgeCommand::Add { bridges } => {
                 let mut nodefile = netlist::NodeFile::from(device.netlist()?);
                 let parsed = netlist::NodeFile::parse(&bridges)
-                    .with_context(|| format!("Parsing bridges from argument"))?;
+                    .with_context(|| "Parsing bridges from argument")?;
                 nodefile.add_from(parsed);
                 device.send_nodefile(&nodefile)?;
             }
             BridgeCommand::Remove { bridges } => {
                 let mut nodefile = netlist::NodeFile::from(device.netlist()?);
                 let parsed = netlist::NodeFile::parse(&bridges)
-                    .with_context(|| format!("Parsing bridges from argument"))?;
+                    .with_context(|| "Parsing bridges from argument")?;
                 nodefile.remove_from(parsed);
                 device.send_nodefile(&nodefile)?;
             }

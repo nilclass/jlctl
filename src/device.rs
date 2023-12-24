@@ -18,19 +18,19 @@ impl Device {
     }
 
     pub fn netlist(&mut self) -> Result<Vec<NetlistEntry>> {
-        self.port.write(b"n")?;
+        self.port.write_all(b"n")?;
         Ok(parse_netlist(&mut self.port))
     }
 
     pub fn send_nodefile(&mut self, nodefile: &NodeFile) -> Result<()> {
-        self.port.write(b"f{\n")?;
-        self.port.write(nodefile.to_string().as_bytes())?;
-        self.port.write(b",\n}\n")?;
+        self.port.write_all(b"f{\n")?;
+        self.port.write_all(nodefile.to_string().as_bytes())?;
+        self.port.write_all(b",\n}\n")?;
         Ok(())
     }
 
     pub fn clear_nodefile(&mut self) -> Result<()> {
-        self.port.write(b"f{\n}\n")?;
+        self.port.write_all(b"f{\n}\n")?;
         Ok(())
     }
 }

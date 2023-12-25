@@ -23,8 +23,8 @@ You'll find the binary in `./target/release/jlctl`. Copy it wherever you like!
 
 ## Usage
 
-`jlctl` needs access to the serial port of the jumperless. By default `/dev/ttyACM0` is chosen.
-Use the global `-p <port>` option to use a different serial port.
+`jlctl` needs access to the serial port of the jumperless. By default it will try to find the port itself.
+If that fails, or if you want to restrict `jlctl` to a specific serial port, use the `--port <port>` option.
 
 ### Help
 
@@ -35,15 +35,16 @@ CLI for the jumperless breadboard
 Usage: jlctl [OPTIONS] <COMMAND>
 
 Commands:
-  netlist  Print current netlist
-  bridge   Interact with bridges
-  server   Start HTTP server
-  help     Print this message or the help of the given subcommand(s)
+  list-ports  List serial ports
+  netlist     Print current netlist
+  bridge      Interact with bridges
+  server      Start HTTP server
+  help        Print this message or the help of the given subcommand(s)
 
 Options:
-  -p <PORT>      Serial port where the Jumperless is connected [default: /dev/ttyACM0]
-  -h, --help     Print help
-  -V, --version  Print version
+  -p, --port <PORT>  Serial port where the Jumperless is connected. If omitted, the port is detected dynamically
+  -h, --help         Print help
+  -V, --version      Print version
 ```
 
 To get help for a subcommand, run `jlctl help <command>`, e.g.
@@ -62,6 +63,16 @@ Commands:
 
 Options:
   -h, --help  Print help
+```
+
+### Troubleshooting
+
+jlctl uses the [`env_logger`](https://docs.rs/env_logger/0.10.1/env_logger/) package to facilitate logging.
+Check out it's documentation to find out about all the options.
+The log level defaults to `info`. A good place to start is setting it to `debug`:
+
+```
+RUST_LOG=debug jlctl ...
 ```
 
 ### `jlctl netlist`
@@ -152,6 +163,11 @@ By default the server listens on `localhost:8080`. To change that, pass `--liste
 ```
 jlctl server --listen 0.0.0.0:12345
 ```
+
+When run as a server, jlctl will try to open the device once the first request comes in.
+It then keeps that device open and uses it for subsequent requests.
+If any request fails to communicate with the device, that request will fail (with status 502),
+but subsequent requests will try to open the device again.
 
 ### Netlist
 

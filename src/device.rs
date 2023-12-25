@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use serialport::SerialPort;
 use std::time::Duration;
 
+/// Represents a connection to a Jumperless device, on a fixed port.
 pub struct Device {
     port: Box<dyn SerialPort>,
 }

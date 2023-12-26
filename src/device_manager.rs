@@ -102,11 +102,15 @@ impl DeviceManager {
 
         let mut found = vec![];
 
-        for (id, infos) in &by_usb_id {
+        for (id, infos) in &mut by_usb_id {
             let SerialPortType::UsbPort(UsbPortInfo { product, .. }) = &infos[0].port_type else {
                 unreachable!()
             };
+
             if product.is_some() && product.as_ref().unwrap() == "Jumperless" {
+                // remove "tty" ports on Mac OS (only use the "cu" ones)
+                fixup_mac_ports(infos);
+
                 match infos.len() {
                     1 => {
                         debug!(
@@ -181,4 +185,83 @@ pub enum PortRole {
     JumperlessPrimary,
     /// The device identifies as a Jumperless, and this port is the higher one of the two.
     JumperlessArduino,
+}
+
+fn fixup_mac_ports(infos: &mut Vec<SerialPortInfo>) {
+    // On MacOS for every real serial port there are two device
+    // nodes: one starting with "cu", one with "tty".
+    //
+    // If both exist, we filter out the "tty" ones and only use the "cu"s.
+
+    let (mut cu, mut tty) = (false, false);
+
+    for info in infos.iter() {
+        if info.port_name.starts_with("/dev/cu.") {
+            cu = true;
+        }
+        if info.port_name.starts_with("/dev/tty.") {
+            tty = true;
+        }
+    }
+
+    if cu && tty {
+        infos.retain(|info| info.port_name.starts_with("/dev/cu."))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fixup_mac_ports() {
+        let mut mac_ports = vec![
+            SerialPortInfo {
+                port_name: "/dev/cu.usbmodem01".to_string(),
+                port_type: SerialPortType::UsbPort(UsbPortInfo {
+                    vid: 44203,
+                    pid: 4882,
+                    serial_number: Some("0".to_string()),
+                    manufacturer: Some("Architeuthis Flux".to_string()),
+                    product: Some("Jumperless".to_string()),
+                }),
+            },
+            SerialPortInfo {
+                port_name: "/dev/tty.usbmodem01".to_string(),
+                port_type: SerialPortType::UsbPort(UsbPortInfo {
+                    vid: 44203,
+                    pid: 4882,
+                    serial_number: Some("0".to_string()),
+                    manufacturer: Some("Architeuthis Flux".to_string()),
+                    product: Some("Jumperless".to_string()),
+                }),
+            },
+            SerialPortInfo {
+                port_name: "/dev/cu.usbmodem03".to_string(),
+                port_type: SerialPortType::UsbPort(UsbPortInfo {
+                    vid: 44203,
+                    pid: 4882,
+                    serial_number: Some("0".to_string()),
+                    manufacturer: Some("Architeuthis Flux".to_string()),
+                    product: Some("Jumperless".to_string()),
+                }),
+            },
+            SerialPortInfo {
+                port_name: "/dev/tty.usbmodem03".to_string(),
+                port_type: SerialPortType::UsbPort(UsbPortInfo {
+                    vid: 44203,
+                    pid: 4882,
+                    serial_number: Some("0".to_string()),
+                    manufacturer: Some("Architeuthis Flux".to_string()),
+                    product: Some("Jumperless".to_string()),
+                }),
+            },
+        ];
+
+        let expected = vec![mac_ports[0].clone(), mac_ports[2].clone()];
+
+        fixup_mac_ports(&mut mac_ports);
+
+        assert_eq!(mac_ports, expected);
+    }
 }

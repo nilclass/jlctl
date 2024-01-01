@@ -1,7 +1,7 @@
-use crate::{device_manager::DeviceManager, netlist::NodeFile};
+use crate::{device_manager::DeviceManager, types::Net};
 use actix_cors::Cors;
 use actix_web::{
-    delete, get, http, middleware::Logger, post, put, web, App, HttpResponse, HttpServer,
+    get, http, middleware::Logger, post, put, web, App, HttpResponse, HttpServer,
     Responder, ResponseError, Result,
 };
 use log::info;
@@ -10,6 +10,19 @@ use std::sync::{Arc, Mutex};
 
 struct Shared {
     device_manager: Arc<Mutex<DeviceManager>>,
+}
+
+impl Shared {
+    fn netlist(&self) -> Result<Vec<Net>> {
+        Ok(
+            self
+                .device_manager
+                .lock()
+                .unwrap()
+                .with_device(|device| device.netlist())
+                .map_err(Error)?
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -27,70 +40,93 @@ impl ResponseError for Error {
     }
 }
 
-#[get("/netlist")]
-async fn netlist(shared: web::Data<Shared>) -> Result<impl Responder> {
-    let netlist = shared
-        .device_manager
+#[get("/status")]
+async fn get_status(shared: web::Data<Shared>) -> Result<impl Responder> {
+    let status = shared.device_manager
         .lock()
         .unwrap()
-        .with_device(|device| device.netlist())
+        .status()
+        .map_err(Error)?;
+    Ok(web::Json(status))
+}
+
+#[get("/nets")]
+async fn get_nets(shared: web::Data<Shared>) -> Result<impl Responder> {
+    Ok(web::Json(shared.netlist()?))
+}
+
+#[put("/nets")]
+async fn put_nets(shared: web::Data<Shared>, json: web::Json<Vec<Net>>) -> Result<impl Responder> {
+    let netlist = shared.device_manager
+        .lock()
+        .unwrap()
+        .with_device(|device| {
+            device.set_netlist(json.into_inner())?;
+            device.netlist()
+        })
         .map_err(Error)?;
 
     Ok(web::Json(netlist))
 }
 
-#[get("/bridges")]
-async fn bridges(shared: web::Data<Shared>) -> Result<impl Responder> {
-    let nodefile: NodeFile = shared
-        .device_manager
-        .lock()
-        .unwrap()
-        .with_device(|device| device.netlist())
-        .map_err(Error)?
-        .into();
-
-    Ok(web::Json(nodefile))
+#[get("/nets/:index")]
+async fn get_net(path: web::Path<u8>, shared: web::Data<Shared>) -> Result<impl Responder> {
+    let index = path.into_inner();
+    Ok(web::Json(shared.netlist()?.into_iter().find(|net| net.index == index)))
 }
 
-#[put("/bridges")]
-async fn add_bridges(
-    shared: web::Data<Shared>,
-    json: web::Json<NodeFile>,
-) -> Result<impl Responder> {
-    let nodefile = shared
-        .device_manager
-        .lock()
-        .unwrap()
-        .with_device(|device| {
-            let mut nodefile: NodeFile = device.netlist()?.into();
-            nodefile.add_from(json.0);
-            device.send_nodefile(&nodefile)?;
-            Ok(nodefile)
-        })
-        .map_err(Error)?;
+// #[get("/bridges")]
+// async fn bridges(shared: web::Data<Shared>) -> Result<impl Responder> {
+//     let nodefile: NodeFile = shared
+//         .device_manager
+//         .lock()
+//         .unwrap()
+//         .with_device(|device| device.netlist())
+//         .map_err(Error)?
+//         .into();
 
-    Ok(web::Json(nodefile))
-}
+//     Ok(web::Json(nodefile))
+// }
 
-#[delete("/bridges")]
-async fn remove_bridges(
-    shared: web::Data<Shared>,
-    json: web::Json<NodeFile>,
-) -> Result<impl Responder> {
-    let nodefile = shared
-        .device_manager
-        .lock()
-        .unwrap()
-        .with_device(|device| {
-            let mut nodefile: NodeFile = device.netlist()?.into();
-            nodefile.remove_from(json.0);
-            device.send_nodefile(&nodefile)?;
-            Ok(nodefile)
-        })
-        .map_err(Error)?;
+// #[put("/bridges")]
+// async fn add_bridges(
+//     shared: web::Data<Shared>,
+//     json: web::Json<NodeFile>,
+// ) -> Result<impl Responder> {
+//     let nodefile = shared
+//         .device_manager
+//         .lock()
+//         .unwrap()
+//         .with_device(|device| {
+//             let mut nodefile: NodeFile = device.netlist()?.into();
+//             nodefile.add_from(json.0);
+//             device.send_nodefile(&nodefile)?;
+//             Ok(nodefile)
+//         })
+//         .map_err(Error)?;
 
-    Ok(web::Json(nodefile))
-}
+//     Ok(web::Json(nodefile))
+// }
+
+// #[delete("/bridges")]
+// async fn remove_bridges(
+//     shared: web::Data<Shared>,
+//     json: web::Json<NodeFile>,
+// ) -> Result<impl Responder> {
+//     let nodefile = shared
+//         .device_manager
+//         .lock()
+//         .unwrap()
+//         .with_device(|device| {
+//             let mut nodefile: NodeFile = device.netlist()?.into();
+//             nodefile.remove_from(json.0);
+//             device.send_nodefile(&nodefile)?;
+//             Ok(nodefile)
+//         })
+//         .map_err(Error)?;
+
+//     Ok(web::Json(nodefile))
+// }
 
 #[post("/bridges/clear")]
 async fn clear_bridges(shared: web::Data<Shared>) -> Result<impl Responder> {
@@ -126,13 +162,16 @@ pub async fn start(device_manager: DeviceManager, listen_address: &str) -> std::
             .app_data(web::Data::new(Shared {
                 device_manager: Arc::clone(&device_manager),
             }))
-            .service(netlist)
-            .service(bridges)
-            .service(add_bridges)
-            .service(remove_bridges)
+            .service(get_status)
+            .service(get_nets)
+            .service(put_nets)
+            .service(get_net)
+            // .service(bridges)
+            // .service(add_bridges)
+            // .service(remove_bridges)
             .service(clear_bridges)
     })
-    .workers(2)
+    .workers(1)
     .bind(listen_address)?
     .run()
     .await

@@ -3,11 +3,17 @@ use anyhow::{Context, Result};
 use log::{debug, error};
 use serialport::{SerialPortInfo, SerialPortType, UsbPortInfo};
 use std::collections::HashMap;
+use serde::Serialize;
 
 /// Identifies and manages the jumperless [`Device`], to communicate with.
 pub struct DeviceManager {
     path: Option<String>,
     device: Option<Device>,
+}
+
+#[derive(Serialize)]
+pub struct Status {
+    connected: bool,
 }
 
 impl DeviceManager {
@@ -30,11 +36,20 @@ impl DeviceManager {
         Self { path, device: None }
     }
 
+    pub fn status(&mut self) -> Result<Status> {
+        let connected = self.with_device(|_| { Ok(()) }).is_ok();
+        Ok(Status { connected })
+    }
+
     /// Attempts to open the device (if it is not already open) and passes it to the closure.
     /// If an error occurs, the device is forgotten, so the next call will try to open the
     /// device again.
     pub fn with_device<T, F: FnOnce(&mut Device) -> Result<T>>(&mut self, f: F) -> Result<T> {
         f(self.device()?).map_err(|e| self.forget_device(e))
+    }
+
+    pub fn close_device(&mut self) {
+        self.device = None;
     }
 
     fn forget_device(&mut self, error: anyhow::Error) -> anyhow::Error {
@@ -44,7 +59,7 @@ impl DeviceManager {
     }
 
     fn device(&mut self) -> Result<&mut Device> {
-        if self.device.is_some() {
+        if self.device.is_some() && self.device.as_ref().unwrap().is_alive() {
             Ok(self.device.as_mut().unwrap())
         } else {
             log::info!("Attempting to open device");
@@ -54,7 +69,7 @@ impl DeviceManager {
 
     fn open(&mut self) -> Result<&mut Device> {
         let port_path = self.port_path()?;
-        let device = Device::new(port_path.clone())?;
+        let device = Device::new(port_path.clone(), "log.txt".to_string())?;
         self.device = Some(device);
         log::info!("Connected to jumperless on port {}", port_path);
         Ok(self.device.as_mut().unwrap())

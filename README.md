@@ -1,3 +1,5 @@
+**WARNING:** _don't trust this README on the `develop` branch. Consider it outdated, until this warning is removed._
+
 # jlctl - A Jumperless CLI
 
 `jlctl` is a command line tool for controlling @Architeuthis-Flux's awesome [Jumperless breadboard](https://github.com/Architeuthis-Flux/Jumperless/).

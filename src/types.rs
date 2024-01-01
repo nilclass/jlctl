@@ -45,7 +45,8 @@ impl TryFrom<String> for Color {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let (_, color) = new_parser::color(&value[1..]).map_err(|e| anyhow::anyhow!("Failed to parse color: {:?}", e))?;
+        let trimmed = value.trim_start_matches("0x").trim_start_matches("0X").trim_start_matches("#");
+        let (_, color) = new_parser::color(trimmed).map_err(|e| anyhow::anyhow!("Failed to parse color: {:?}", e))?;
         Ok(color)
     }
 }

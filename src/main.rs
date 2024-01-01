@@ -48,17 +48,22 @@ enum Command {
     #[command(subcommand, alias = "bridges")]
     Bridge(BridgeCommand),
 
+    /// Inform Jumperless about it's switch position
     #[command()]
     SupplySwitchPos {
+        /// One of: 8V, 3.3V, 5V
         #[arg()]
         pos: device::SupplySwitchPos,
     },
 
+    /// Set color for given light
     #[command()]
     Lightnet {
+        /// Light to target (node name, or a special name like 'glow', 'logo', ...)
         #[arg()]
         name: String,
 
+        /// Color. Must be 6-digit hex. Allowed prefixes: 0x, 0X, #
         #[arg()]
         color: String,
     },

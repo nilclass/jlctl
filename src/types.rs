@@ -17,6 +17,8 @@ pub struct Net {
 /// A message received from the jumperless
 #[derive(Debug, Clone, PartialEq)]
 pub enum Message {
+    Ok,
+    Error,
     NetlistBegin,
     NetlistEnd,
     Net(Net),

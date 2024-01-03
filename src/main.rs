@@ -40,6 +40,16 @@ enum Command {
     #[command()]
     IdentifyPort,
 
+    /// Send a raw command to the Jumperless
+    #[command()]
+    Raw {
+        #[arg()]
+        instruction: String,
+
+        #[arg()]
+        args: Option<String>,
+    },
+
     /// Interact with nets
     #[command(subcommand, alias = "nets")]
     Net(NetCommand),
@@ -185,6 +195,12 @@ fn main() -> anyhow::Result<()> {
 
             Command::Lightnet { name, color } => {
                 device.lightnet(name, color.try_into()?)?;
+            },
+
+            Command::Raw { instruction, args } => {
+                let (success, messages) = device.raw(instruction, args.unwrap_or_default())?;
+                println!("Success: {success:?}");
+                println!("Captured messages: {messages:#?}");
             },
 
             Command::Net(net_command) => match net_command {

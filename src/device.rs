@@ -43,6 +43,7 @@ enum Command {
     SetBridgelist(Bridgelist),
     SetSupplySwitch(SupplySwitchPos),
     Lightnet(String, Color),
+    Raw(String, String),
 }
 
 /// Represents the position of the supply switch.
@@ -101,6 +102,21 @@ impl Device {
     pub fn is_alive(&self) -> bool {
         let (thread, _, _) = self.reader.as_ref().unwrap();
         !thread.is_finished()
+    }
+
+    pub fn raw(&mut self, instruction: String, args: String) -> Result<(bool, Vec<Message>)> {
+        let mut messages = vec![];
+        self.send_command(Command::Raw(instruction, args))?;
+        let success = loop {
+            match self.receive() {
+                Received::Message(Message::Ok) => break true,
+                Received::Message(Message::Error) => break false,
+                Received::Message(message) => messages.push(message),
+                Received::Error(error) => return Err(anyhow::anyhow!("Received an error: {}", error)),
+                Received::Unrecognized(chunk) => return Err(anyhow::anyhow!("Received unparsable: {:?}", chunk)),
+            }
+        };
+        Ok((success, messages))
     }
 
     /// Retrieve current list of bridges
@@ -183,6 +199,9 @@ impl Device {
 
     fn send_command(&mut self, command: Command) -> Result<()> {
         let msg = match command {
+            Command::Raw(instruction, args) => {
+                format!("::{}[{}]", instruction, args)
+            }
             Command::GetNetlist => {
                 "::getnetlist[]".to_string()
             }

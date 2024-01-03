@@ -13,12 +13,22 @@ pub fn message(input: &str) -> IResult<&str, Message> {
     use Message::*;
     all_consuming(
         alt((
+            map(ok_response, |_| Ok),
+            map(error_response, |_| Error),
             map(netlist_begin, |_| NetlistBegin),
             map(netlist_end, |_| NetlistEnd),
             map(net, Net),
             map(bridgelist, Bridgelist),
         ))
     )(input)
+}
+
+pub fn ok_response(input: &str) -> IResult<&str, ()> {
+    value((), tag("::ok"))(input)
+}
+
+pub fn error_response(input: &str) -> IResult<&str, ()> {
+    value((), tag("::error"))(input)
 }
 
 pub fn netlist_begin(input: &str) -> IResult<&str, ()> {

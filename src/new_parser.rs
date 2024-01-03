@@ -1,10 +1,10 @@
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_till},
-    character::complete::u8,
+    character::complete::{u8, u32},
     combinator::{map, map_res, value, all_consuming},
     multi::{separated_list1, separated_list0},
-    sequence::{tuple, separated_pair},
+    sequence::{tuple, separated_pair, preceded},
     IResult,
 };
 use crate::types::{Message, Net, Node, Color, Bridgelist};
@@ -13,8 +13,8 @@ pub fn message(input: &str) -> IResult<&str, Message> {
     use Message::*;
     all_consuming(
         alt((
-            map(ok_response, |_| Ok),
-            map(error_response, |_| Error),
+            map(ok_response, Ok),
+            map(error_response, Error),
             map(netlist_begin, |_| NetlistBegin),
             map(netlist_end, |_| NetlistEnd),
             map(net, Net),
@@ -23,13 +23,22 @@ pub fn message(input: &str) -> IResult<&str, Message> {
     )(input)
 }
 
-pub fn ok_response(input: &str) -> IResult<&str, ()> {
-    value((), tag("::ok"))(input)
+pub fn ok_response(input: &str) -> IResult<&str, Option<u32>> {
+    preceded(tag("::ok"), sequence_number)(input)
 }
 
-pub fn error_response(input: &str) -> IResult<&str, ()> {
-    value((), tag("::error"))(input)
+pub fn error_response(input: &str) -> IResult<&str, Option<u32>> {
+    preceded(tag("::error"), sequence_number)(input)
 }
+
+fn sequence_number(input: &str) -> IResult<&str, Option<u32>> {
+    if input.starts_with(":") {
+        map(u32, |seq| Some(seq))(&input[1..])
+    } else {
+        Ok((input, None))
+    }
+}
+
 
 pub fn netlist_begin(input: &str) -> IResult<&str, ()> {
     value((), tag("::netlist-begin"))(input)

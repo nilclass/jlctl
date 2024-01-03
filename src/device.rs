@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serialport::SerialPort;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::time::Duration;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, atomic::{AtomicU32, Ordering}};
 use std::io::{Write, BufRead, BufReader};
 use std::fs::File;
 use std::thread::{spawn, JoinHandle};
@@ -15,7 +15,8 @@ use crate::types::{Message, Net, Bridgelist, Color};
 pub struct Device {
     port: Box<dyn SerialPort>,
     log: Arc<Mutex<File>>,
-    reader: Option<(JoinHandle<()>, Receiver<Received>, Sender<()>)>
+    reader: Option<(JoinHandle<()>, Receiver<Received>, Sender<()>)>,
+    sequence: AtomicU32,
 }
 
 #[derive(Debug)]
@@ -35,8 +36,8 @@ fn parse_received(line: String) -> Received {
     }
 }
 
-/// Commands are messages sent from the host to the Jumperless
-enum Command {
+/// Instructions are messages sent from the host to the Jumperless
+enum Instruction {
     GetNetlist,
     SetNetlist(Vec<Net>),
     GetBridgelist,
@@ -44,6 +45,48 @@ enum Command {
     SetSupplySwitch(SupplySwitchPos),
     Lightnet(String, Color),
     Raw(String, String),
+}
+
+impl Instruction {
+    fn generate(&self, sequence_number: u32) -> String {
+        match self {
+            Instruction::Raw(instruction, args) => {
+                format!("::{}:{}[{}]", instruction, sequence_number, args)
+            }
+            Instruction::GetNetlist => {
+                format!("::getnetlist:{}[]", sequence_number)
+            }
+            Instruction::SetNetlist(nets) => {
+                format!("::netlist:{}{}", sequence_number, serde_json::to_string(&nets).expect("serialize nets"))
+            }
+            Instruction::GetBridgelist => {
+                format!("::getbridgelist:{}[]", sequence_number)
+            }
+            Instruction::SetBridgelist(bridgelist) => {
+                let mut line = format!("::bridgelist{}[", sequence_number);
+                for (i, (a, b)) in bridgelist.into_iter().enumerate() {
+                    if i > 0 {
+                        line += ",";
+                    }
+                    line += &a.to_string();
+                    line += "-";
+                    line += &b.to_string();
+                }
+                line
+            }
+            Instruction::SetSupplySwitch(pos) => {
+                format!("::setsupplyswitch:{}[{}]", sequence_number, match pos {
+                    SupplySwitchPos::V8 => "8V",
+                    SupplySwitchPos::V3_3 => "3.3V",
+                    SupplySwitchPos::V5 => "5V",
+                })
+            }
+            Instruction::Lightnet(net_name, color) => {
+                let color: u32 = (*color).into();
+                format!("::lightnet:{}[{}: 0x{:06x}]", sequence_number, net_name, color)
+            }
+        }
+    }
 }
 
 /// Represents the position of the supply switch.
@@ -89,7 +132,7 @@ impl Device {
             .open(log_path.as_str())
             .map(|f| Arc::new(Mutex::new(f)))
             .with_context(|| format!("Failed to open log file: {}", log_path))?;
-        let mut device = Self { port, log, reader: None };
+        let mut device = Self { port, log, reader: None, sequence: AtomicU32::new(0) };
 
         device.start_reader_thread()?;
 
@@ -106,11 +149,11 @@ impl Device {
 
     pub fn raw(&mut self, instruction: String, args: String) -> Result<(bool, Vec<Message>)> {
         let mut messages = vec![];
-        self.send_command(Command::Raw(instruction, args))?;
+        self.send_instruction(Instruction::Raw(instruction, args))?;
         let success = loop {
             match self.receive() {
-                Received::Message(Message::Ok) => break true,
-                Received::Message(Message::Error) => break false,
+                Received::Message(Message::Ok(_)) => break true,
+                Received::Message(Message::Error(_)) => break false,
                 Received::Message(message) => messages.push(message),
                 Received::Error(error) => return Err(anyhow::anyhow!("Received an error: {}", error)),
                 Received::Unrecognized(chunk) => return Err(anyhow::anyhow!("Received unparsable: {:?}", chunk)),
@@ -121,136 +164,85 @@ impl Device {
 
     /// Retrieve current list of bridges
     pub fn bridgelist(&mut self) -> Result<Bridgelist> {
-        self.send_command(Command::GetBridgelist)?;
-        loop {
+        let seq = self.send_instruction(Instruction::GetBridgelist)?;
+        let bridgelist = loop {
             match self.receive() {
-                Received::Message(Message::Bridgelist(bridgelist)) => return Ok(bridgelist),
+                Received::Message(Message::Bridgelist(bridgelist)) => break bridgelist,
                 other => {
                     eprintln!("WARNING: received sth unexpected: {:?}", other);
                 }
             }
-        }
+        };
+        self.receive_ok(seq)?;
+        Ok(bridgelist)
     }
 
     /// Upload new list of bridges
     pub fn set_bridgelist(&mut self, bridgelist: Bridgelist) -> Result<()> {
-        self.send_command(Command::SetBridgelist(bridgelist))?;
-        Ok(())
+        let seq = self.send_instruction(Instruction::SetBridgelist(bridgelist))?;
+        self.receive_ok(seq)
+    }
+
+    pub fn receive_ok(&mut self, sequence_number: u32) -> Result<()> {
+        self.receive_ok_capture(sequence_number, |_| {})
+    }
+
+    pub fn receive_ok_capture<F: FnMut(Message)>(&mut self, sequence_number: u32, mut capture: F) -> Result<()> {
+        loop {
+            match self.receive() {
+                Received::Message(Message::Ok(Some(seq))) if seq == sequence_number => return Ok(()),
+                Received::Message(Message::Error(Some(seq))) if seq == sequence_number => return Err(anyhow::anyhow!("Received error response")),
+                Received::Message(message) => capture(message),
+                Received::Error(error) => return Err(anyhow::anyhow!("{:?}", error)),
+                _ => {},
+            }
+        }
     }
 
     /// Retrieve list of nets
     pub fn netlist(&mut self) -> Result<Vec<Net>> {
-        self.send_command(Command::GetNetlist)?;
+        let seq = self.send_instruction(Instruction::GetNetlist)?;
         let mut result = vec![];
-        loop {
-            match self.receive() {
-                Received::Message(Message::NetlistBegin) => {
-                    break;
-                }
-                Received::Error(error) => {
-                    return Err(anyhow::anyhow!("while reading netlist: {}", error));
-                }
-                other => {
-                    eprintln!("WARNING: received sth unexpected waiting for begin: {:?}", other);
-                }
+        let mut begin = false;
+        self.receive_ok_capture(seq, |message| {
+            match message {
+                Message::NetlistBegin => { begin = true; },
+                Message::NetlistEnd => { begin = false; },
+                Message::Net(net) => { result.push(net); },
+                _ => {},
             }
-        }
-        loop {
-            match self.receive() {
-                Received::Message(Message::NetlistEnd) => {
-                    break;
-                }
-                Received::Message(Message::Net(net)) => {
-                    result.push(net);
-                }
-                Received::Error(error) => {
-                    return Err(anyhow::anyhow!("while reading netlist: {}", error));
-                }
-                other => {
-                    eprintln!("WARNING: received sth unexpected: {:?}", other);
-                }
-            }
-        }
+        })?;
         Ok(result)
     }
 
     /// Upload new list of nets
     pub fn set_netlist(&mut self, nets: Vec<Net>) -> Result<()> {
-        self.send_command(Command::SetNetlist(nets))?;
+        self.send_instruction(Instruction::SetNetlist(nets))?;
         Ok(())
     }
 
-    // pub fn receive_message(&mut self) -> Option<Message> {
-    //     match self.receive() {
-    //         Received::Message(message) => Some(message),
-    //         _ => None,
-    //     }
-    // }
-
     pub fn set_supply_switch(&mut self, pos: SupplySwitchPos) -> Result<()> {
-        self.send_command(Command::SetSupplySwitch(pos))?;
+        self.send_instruction(Instruction::SetSupplySwitch(pos))?;
         Ok(())
     }
 
     pub fn lightnet(&mut self, name: String, color: Color) -> Result<()> {
-        self.send_command(Command::Lightnet(name, color))?;
+        self.send_instruction(Instruction::Lightnet(name, color))?;
         Ok(())
     }
 
-    fn send_command(&mut self, command: Command) -> Result<()> {
-        let msg = match command {
-            Command::Raw(instruction, args) => {
-                format!("::{}[{}]", instruction, args)
-            }
-            Command::GetNetlist => {
-                "::getnetlist[]".to_string()
-            }
-            Command::SetNetlist(nets) => {
-                format!("::netlist{}", serde_json::to_string(&nets)?)
-            }
-            Command::GetBridgelist => {
-                "::getbridgelist[]".to_string()
-            }
-            Command::SetBridgelist(bridgelist) => {
-                let mut line = "::bridgelist[".to_string();
-                for (i, (a, b)) in bridgelist.into_iter().enumerate() {
-                    if i > 0 {
-                        line += ",";
-                    }
-                    line += &a.to_string();
-                    line += "-";
-                    line += &b.to_string();
-                }
-                line
-            }
-            Command::SetSupplySwitch(pos) => {
-                format!("::setsupplyswitch[{}]", match pos {
-                    SupplySwitchPos::V8 => "8V",
-                    SupplySwitchPos::V3_3 => "3.3V",
-                    SupplySwitchPos::V5 => "5V",
-                })
-            }
-            Command::Lightnet(net_name, color) => {
-                let color: u32 = color.into();
-                format!("::lightnet[{}: 0x{:06x}]", net_name, color)
-            }
-        };
+    fn send_instruction(&mut self, instruction: Instruction) -> Result<u32> {
+        let sequence_number = self.sequence.fetch_add(1, Ordering::SeqCst) + 1;
+        let msg = instruction.generate(sequence_number);
         write_log(&self.log, &format!("SEND {}", msg))?;
         write!(self.port, "{}\r\n", msg)?;
-        Ok(())
+        Ok(sequence_number)
     }
 
     fn receive(&mut self) -> Received {
         let (_, recv, _) = self.reader.as_mut().expect("Reader thread");
         recv.recv_timeout(std::time::Duration::from_millis(200)).expect("receive")
     }
-
-    // pub fn send_nodefile(&mut self, nodefile: &NodeFile) -> Result<()> {
-    //     self.port.write_all(b"f{\n")?;
-    //     self.port.write_all(nodefile.to_string().as_bytes())?;
-    //     self.port.write_all(b",\n}\n")?;
-    //     Ok(())
-    // }
 
     pub fn clear_nodefile(&mut self) -> Result<()> {
         self.port.write_all(b"f{\n}\n")?;

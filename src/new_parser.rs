@@ -246,7 +246,7 @@ mod tests {
             Message::Net(Net {
                 index: 4,
                 number: 4,
-                nodes: vec![Node::DAC_0_5V],
+                nodes: vec![Node::DAC0_5V],
                 special: true,
                 color: Color([0x23, 0x11, 0x11]),
                 machine: false,
@@ -255,7 +255,7 @@ mod tests {
             Message::Net(Net {
                 index: 5,
                 number: 5,
-                nodes: vec![Node::DAC_1_8V],
+                nodes: vec![Node::DAC1_8V],
                 special: true,
                 color: Color([0x23, 0x09, 0x13]),
                 machine: false,

@@ -3,6 +3,7 @@ use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Table};
 use device_manager::PortRole;
 use env_logger::Env;
 use shadow_rs::shadow;
+use types::SupplySwitchPos;
 use std::fs::File;
 use log::info;
 
@@ -12,6 +13,7 @@ mod device;
 mod device_manager;
 mod server;
 mod types;
+mod validate;
 
 mod new_parser;
 
@@ -63,7 +65,7 @@ enum Command {
     SupplySwitchPos {
         /// One of: 8V, 3.3V, 5V
         #[arg()]
-        pos: device::SupplySwitchPos,
+        pos: SupplySwitchPos,
     },
 
     /// Set color for given light

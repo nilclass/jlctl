@@ -1,4 +1,4 @@
-use crate::{device_manager::DeviceManager, types::Net};
+use crate::{device_manager::DeviceManager, types::{Net, SupplySwitchPos}, validate};
 use actix_cors::Cors;
 use actix_web::{
     get, http, middleware::Logger, post, put, web, App, HttpResponse, HttpServer,
@@ -61,7 +61,7 @@ async fn put_nets(shared: web::Data<Shared>, json: web::Json<Vec<Net>>) -> Resul
         .lock()
         .unwrap()
         .with_device(|device| {
-            device.set_netlist(json.into_inner())?;
+            device.set_netlist(validate::netlist(json.into_inner())?)?;
             device.netlist()
         })
         .map_err(Error)?;
@@ -69,10 +69,31 @@ async fn put_nets(shared: web::Data<Shared>, json: web::Json<Vec<Net>>) -> Resul
     Ok(web::Json(netlist))
 }
 
-#[get("/nets/:index")]
+#[get("/nets/{index}")]
 async fn get_net(path: web::Path<u8>, shared: web::Data<Shared>) -> Result<impl Responder> {
     let index = path.into_inner();
     Ok(web::Json(shared.netlist()?.into_iter().find(|net| net.index == index)))
+}
+
+#[get("/supply_switch_pos")]
+async fn get_supply_switch_pos(shared: web::Data<Shared>) -> Result<impl Responder> {
+    let pos = shared.device_manager
+        .lock()
+        .unwrap()
+        .with_device(|device| device.supply_switch())
+        .map_err(Error)?;
+    Ok(web::Json(pos.to_string()))
+}
+
+#[put("/supply_switch_pos/{pos}")]
+async fn set_supply_switch_pos(path: web::Path<String>, shared: web::Data<Shared>) -> Result<impl Responder> {
+    let pos: SupplySwitchPos = path.into_inner().parse().map_err(Error)?;
+    shared.device_manager
+        .lock()
+        .unwrap()
+        .with_device(|device| device.set_supply_switch(pos))
+        .map_err(Error)?;
+    Ok(web::Json(pos.to_string()))
 }
 
 // #[get("/bridges")]
@@ -163,9 +184,11 @@ pub async fn start(device_manager: DeviceManager, listen_address: &str) -> std::
                 device_manager: Arc::clone(&device_manager),
             }))
             .service(get_status)
+            .service(get_net)
             .service(get_nets)
             .service(put_nets)
-            .service(get_net)
+            .service(set_supply_switch_pos)
+            .service(get_supply_switch_pos)
             // .service(bridges)
             // .service(add_bridges)
             // .service(remove_bridges)

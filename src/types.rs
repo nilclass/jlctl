@@ -23,9 +23,45 @@ pub enum Message {
     NetlistEnd,
     Net(Net),
     Bridgelist(Bridgelist),
+    SupplySwitch(SupplySwitchPos),
 }
 
 pub type Bridgelist = Vec<(Node, Node)>;
+
+/// Represents the position of the supply switch.
+///
+/// NOTE: the Jumperless cannot detect the actual state of the switch.
+///   Instead the user must correctly advertise the state to the board,
+///   for the power rows to be lit up correctly.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum SupplySwitchPos {
+    V8,
+    V3_3,
+    V5,
+}
+
+impl std::str::FromStr for SupplySwitchPos {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "8V" => Ok(SupplySwitchPos::V8),
+            "3.3V" => Ok(SupplySwitchPos::V3_3),
+            "5V" => Ok(SupplySwitchPos::V5),
+            _ => Err(anyhow::anyhow!("Unknown variant")),
+        }
+    }
+}
+
+impl std::fmt::Display for SupplySwitchPos {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            SupplySwitchPos::V3_3 => "3.3V",
+            SupplySwitchPos::V5 => "5V",
+            SupplySwitchPos::V8 => "8V",
+        })
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Color(pub [u8; 3]);

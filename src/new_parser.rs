@@ -7,7 +7,7 @@ use nom::{
     sequence::{tuple, separated_pair, preceded},
     IResult,
 };
-use crate::types::{Message, Net, Node, Color, Bridgelist};
+use crate::types::{Message, Net, Node, Color, Bridgelist, SupplySwitchPos};
 
 pub fn message(input: &str) -> IResult<&str, Message> {
     use Message::*;
@@ -19,6 +19,7 @@ pub fn message(input: &str) -> IResult<&str, Message> {
             map(netlist_end, |_| NetlistEnd),
             map(net, Net),
             map(bridgelist, Bridgelist),
+            map(supplyswitch, SupplySwitch),
         ))
     )(input)
 }
@@ -126,6 +127,21 @@ pub fn bridges(input: &str) -> IResult<&str, Bridgelist> {
 
 fn bridge(input: &str) -> IResult<&str, (Node, Node)> {
     separated_pair(node, tag("-"), node)(input)
+}
+
+fn supplyswitch(input: &str) -> IResult<&str, SupplySwitchPos> {
+    map(
+        tuple((tag("::supplyswitch["), supplyswitch_pos, tag("]"))),
+        |(_, pos, _)| pos,
+    )(input)
+}
+
+fn supplyswitch_pos(input: &str) -> IResult<&str, SupplySwitchPos> {
+    alt((
+        value(SupplySwitchPos::V3_3, tag("3.3V")),
+        value(SupplySwitchPos::V5, tag("5V")),
+        value(SupplySwitchPos::V8, tag("8V")),
+    ))(input)
 }
 
 #[cfg(test)]

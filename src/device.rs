@@ -9,7 +9,7 @@ use std::io::{Write, BufRead, BufReader};
 use std::fs::File;
 use std::thread::{spawn, JoinHandle};
 use crate::new_parser;
-use crate::types::{Message, Net, Bridgelist, Color};
+use crate::types::{Message, Net, Bridgelist, Color, SupplySwitchPos};
 
 /// Represents a connection to a Jumperless device, on a fixed port.
 pub struct Device {
@@ -42,6 +42,7 @@ enum Instruction {
     SetNetlist(Vec<Net>),
     GetBridgelist,
     SetBridgelist(Bridgelist),
+    GetSupplySwitch,
     SetSupplySwitch(SupplySwitchPos),
     Lightnet(String, Color),
     Raw(String, String),
@@ -63,7 +64,7 @@ impl Instruction {
                 format!("::getbridgelist:{}[]", sequence_number)
             }
             Instruction::SetBridgelist(bridgelist) => {
-                let mut line = format!("::bridgelist{}[", sequence_number);
+                let mut line = format!("::bridgelist:{}[", sequence_number);
                 for (i, (a, b)) in bridgelist.into_iter().enumerate() {
                     if i > 0 {
                         line += ",";
@@ -72,7 +73,11 @@ impl Instruction {
                     line += "-";
                     line += &b.to_string();
                 }
+                line += "]";
                 line
+            }
+            Instruction::GetSupplySwitch => {
+                format!("::getsupplyswitch:{}[]", sequence_number)
             }
             Instruction::SetSupplySwitch(pos) => {
                 format!("::setsupplyswitch:{}[{}]", sequence_number, match pos {
@@ -85,31 +90,6 @@ impl Instruction {
                 let color: u32 = (*color).into();
                 format!("::lightnet:{}[{}: 0x{:06x}]", sequence_number, net_name, color)
             }
-        }
-    }
-}
-
-/// Represents the position of the supply switch.
-///
-/// NOTE: the Jumperless cannot detect the actual state of the switch.
-///   Instead the user must correctly advertise the state to the board,
-///   for the power rows to be lit up correctly.
-#[derive(Clone, Debug)]
-pub enum SupplySwitchPos {
-    V8,
-    V3_3,
-    V5,
-}
-
-impl std::str::FromStr for SupplySwitchPos {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "8V" => Ok(SupplySwitchPos::V8),
-            "3.3V" => Ok(SupplySwitchPos::V3_3),
-            "5V" => Ok(SupplySwitchPos::V5),
-            _ => Err(anyhow::anyhow!("Unknown variant")),
         }
     }
 }
@@ -221,6 +201,18 @@ impl Device {
         Ok(())
     }
 
+    pub fn supply_switch(&mut self) -> Result<SupplySwitchPos> {
+        let seq = self.send_instruction(Instruction::GetSupplySwitch)?;
+        let mut result = None;
+        self.receive_ok_capture(seq, |message| {
+            match message {
+                Message::SupplySwitch(pos) => result = Some(pos),
+                _ => {},
+            }
+        })?;
+        result.ok_or(anyhow::anyhow!("No ::supplyswitch message received!"))
+    }
+
     pub fn set_supply_switch(&mut self, pos: SupplySwitchPos) -> Result<()> {
         self.send_instruction(Instruction::SetSupplySwitch(pos))?;
         Ok(())
@@ -241,7 +233,7 @@ impl Device {
 
     fn receive(&mut self) -> Received {
         let (_, recv, _) = self.reader.as_mut().expect("Reader thread");
-        recv.recv_timeout(std::time::Duration::from_millis(200)).expect("receive")
+        recv.recv_timeout(std::time::Duration::from_millis(400)).expect("receive")
     }
 
     pub fn clear_nodefile(&mut self) -> Result<()> {

@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::new_parser;
 
@@ -55,11 +55,15 @@ impl std::str::FromStr for SupplySwitchPos {
 
 impl std::fmt::Display for SupplySwitchPos {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            SupplySwitchPos::V3_3 => "3.3V",
-            SupplySwitchPos::V5 => "5V",
-            SupplySwitchPos::V8 => "8V",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                SupplySwitchPos::V3_3 => "3.3V",
+                SupplySwitchPos::V5 => "5V",
+                SupplySwitchPos::V8 => "8V",
+            }
+        )
     }
 }
 
@@ -83,8 +87,12 @@ impl TryFrom<String> for Color {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let trimmed = value.trim_start_matches("0x").trim_start_matches("0X").trim_start_matches("#");
-        let (_, color) = new_parser::color(trimmed).map_err(|e| anyhow::anyhow!("Failed to parse color: {:?}", e))?;
+        let trimmed = value
+            .trim_start_matches("0x")
+            .trim_start_matches("0X")
+            .trim_start_matches('#');
+        let (_, color) = new_parser::color(trimmed)
+            .map_err(|e| anyhow::anyhow!("Failed to parse color: {:?}", e))?;
         Ok(color)
     }
 }
@@ -92,7 +100,8 @@ impl TryFrom<String> for Color {
 impl Serialize for Color {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer {
+        S: serde::Serializer,
+    {
         serializer.serialize_str(&self.to_string())
     }
 }
@@ -119,10 +128,11 @@ impl<'de> serde::de::Visitor<'de> for ColorVisitor {
     where
         E: serde::de::Error,
     {
-        if !v.starts_with("#") {
-            return Err(E::custom("Invalid color, expected to start with '#'"))
+        if !v.starts_with('#') {
+            return Err(E::custom("Invalid color, expected to start with '#'"));
         }
-        let (_, color) = new_parser::color(&v[1..]).map_err(|e| E::custom(format!("Error: {:?}", e)))?;
+        let (_, color) =
+            new_parser::color(&v[1..]).map_err(|e| E::custom(format!("Error: {:?}", e)))?;
         Ok(color)
     }
 }

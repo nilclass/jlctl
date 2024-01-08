@@ -2,10 +2,10 @@ use clap::{Parser, Subcommand, ValueEnum};
 use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Table};
 use device_manager::PortRole;
 use env_logger::Env;
-use shadow_rs::shadow;
-use types::SupplySwitchPos;
-use std::fs::File;
 use log::info;
+use shadow_rs::shadow;
+use std::fs::File;
+use types::SupplySwitchPos;
 
 shadow!(build);
 
@@ -108,7 +108,7 @@ enum NetCommand {
         /// Read from file instead of stdin
         #[arg(long, short)]
         file: Option<String>,
-    }
+    },
 }
 
 #[derive(ValueEnum, Copy, Clone, PartialEq, Debug)]
@@ -140,7 +140,7 @@ enum BridgeCommand {
 
         /// Read bridges from file
         #[arg(long, short)]
-        file: Option<String>
+        file: Option<String>,
     },
 
     /// Upload empty list of bridges to the jumperless
@@ -175,15 +175,19 @@ fn main() -> anyhow::Result<()> {
     }
 
     if let Command::IdentifyPort = args.command {
-        match device_manager.list_ports()?.into_iter().find(|port| port.role == PortRole::JumperlessPrimary) {
+        match device_manager
+            .list_ports()?
+            .into_iter()
+            .find(|port| port.role == PortRole::JumperlessPrimary)
+        {
             Some(primary) => {
                 println!("{}", primary.info.port_name);
-            },
+            }
             None => return Err(anyhow::anyhow!("No matching ports")),
         }
-        return Ok(())
+        return Ok(());
     }
-    
+
     if let Command::Server { listen } = args.command {
         server::start(device_manager, &listen).expect("Start server");
         return Ok(());
@@ -193,20 +197,23 @@ fn main() -> anyhow::Result<()> {
         match args.command {
             Command::SupplySwitchPos { pos } => {
                 device.set_supply_switch(pos)?;
-            },
+            }
 
             Command::Lightnet { name, color } => {
                 device.lightnet(name, color.try_into()?)?;
-            },
+            }
 
             Command::Raw { instruction, args } => {
                 let (success, messages) = device.raw(instruction, args.unwrap_or_default())?;
                 println!("Success: {success:?}");
                 println!("Captured messages: {messages:#?}");
-            },
+            }
 
             Command::Net(net_command) => match net_command {
-                NetCommand::List { file, output_format } => {
+                NetCommand::List {
+                    file,
+                    output_format,
+                } => {
                     let mut output = file_or_stdout(file)?;
                     let netlist = device.netlist()?;
                     match output_format {
@@ -216,19 +223,18 @@ fn main() -> anyhow::Result<()> {
                                 .load_preset(UTF8_FULL)
                                 .apply_modifier(UTF8_ROUND_CORNERS)
                                 .set_header(vec![
-                                    "Index",
-                                    "Number",
-                                    "Nodes",
-                                    "Special",
-                                    "Color",
-                                    "Machine",
+                                    "Index", "Number", "Nodes", "Special", "Color", "Machine",
                                     "Name",
                                 ]);
                             for net in netlist {
                                 table.add_row(vec![
                                     net.index.to_string(),
                                     net.number.to_string(),
-                                    net.nodes.iter().map(|n| n.to_string()).collect::<Vec<String>>().join(", "),
+                                    net.nodes
+                                        .iter()
+                                        .map(|n| n.to_string())
+                                        .collect::<Vec<String>>()
+                                        .join(", "),
                                     net.special.to_string(),
                                     net.color.to_string(),
                                     net.machine.to_string(),
@@ -259,20 +265,30 @@ fn main() -> anyhow::Result<()> {
                 }
                 BridgeCommand::Set { bridges, file } => {
                     let source = match (bridges, file) {
-                        (None, None) => return Err(anyhow::anyhow!("Either `--bridges` or `--file` must be given")),
-                        (Some(_), Some(_)) => return Err(anyhow::anyhow!("Cannot accept `--bridges` together with `--file`")),
+                        (None, None) => {
+                            return Err(anyhow::anyhow!(
+                                "Either `--bridges` or `--file` must be given"
+                            ))
+                        }
+                        (Some(_), Some(_)) => {
+                            return Err(anyhow::anyhow!(
+                                "Cannot accept `--bridges` together with `--file`"
+                            ))
+                        }
                         (Some(bridges), _) => bridges,
                         (_, Some(file)) => std::fs::read_to_string(file)?,
                     };
 
-                    let bridgelist = if source.starts_with("[") {
+                    let bridgelist = if source.starts_with('[') {
                         serde_json::from_str(&source).expect("parse bridgelist as JSON")
                     } else {
-                        let (_, bridgelist) = nom::combinator::all_consuming(new_parser::bridges)(&source).expect("parse bridgelist");
+                        let (_, bridgelist) =
+                            nom::combinator::all_consuming(new_parser::bridges)(&source)
+                                .expect("parse bridgelist");
                         bridgelist
                     };
                     device.set_bridgelist(bridgelist)?;
-                },
+                }
                 _ => todo!(),
             },
             _ => unreachable!(),
@@ -286,25 +302,21 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn file_or_stdout(file_path: Option<String>) -> std::io::Result<Box<dyn std::io::Write>> {
-    Ok(
-        match file_path {
-            Some(file_path) => {
-                info!("Writing output to {:?}", file_path);
-                Box::new(File::create(file_path)?)
-            },
-            None => Box::new(std::io::stdout()),
+    Ok(match file_path {
+        Some(file_path) => {
+            info!("Writing output to {:?}", file_path);
+            Box::new(File::create(file_path)?)
         }
-    )
+        None => Box::new(std::io::stdout()),
+    })
 }
 
 fn file_or_stdin(file_path: Option<String>) -> std::io::Result<Box<dyn std::io::Read>> {
-    Ok(
-        match file_path {
-            Some(file_path) => {
-                info!("Reading input from {:?}", file_path);
-                Box::new(File::open(file_path)?)
-            },
-            None => Box::new(std::io::stdin()),
+    Ok(match file_path {
+        Some(file_path) => {
+            info!("Reading input from {:?}", file_path);
+            Box::new(File::open(file_path)?)
         }
-    )
+        None => Box::new(std::io::stdin()),
+    })
 }

@@ -1,9 +1,9 @@
 use crate::device::Device;
 use anyhow::{Context, Result};
 use log::{debug, error};
+use serde::Serialize;
 use serialport::{SerialPortInfo, SerialPortType, UsbPortInfo};
 use std::collections::HashMap;
-use serde::Serialize;
 
 /// Identifies and manages the jumperless [`Device`], to communicate with.
 pub struct DeviceManager {
@@ -37,7 +37,7 @@ impl DeviceManager {
     }
 
     pub fn status(&mut self) -> Result<Status> {
-        let connected = self.with_device(|_| { Ok(()) }).is_ok();
+        let connected = self.with_device(|_| Ok(())).is_ok();
         Ok(Status { connected })
     }
 

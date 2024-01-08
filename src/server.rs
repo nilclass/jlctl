@@ -1,8 +1,12 @@
-use crate::{device_manager::DeviceManager, types::{Net, SupplySwitchPos}, validate};
+use crate::{
+    device_manager::DeviceManager,
+    types::{Net, SupplySwitchPos},
+    validate,
+};
 use actix_cors::Cors;
 use actix_web::{
-    get, http, middleware::Logger, post, put, web, App, HttpResponse, HttpServer,
-    Responder, ResponseError, Result,
+    get, http, middleware::Logger, post, put, web, App, HttpResponse, HttpServer, Responder,
+    ResponseError, Result,
 };
 use log::info;
 use serde_json::json;
@@ -14,14 +18,12 @@ struct Shared {
 
 impl Shared {
     fn netlist(&self) -> Result<Vec<Net>> {
-        Ok(
-            self
-                .device_manager
-                .lock()
-                .unwrap()
-                .with_device(|device| device.netlist())
-                .map_err(Error)?
-        )
+        Ok(self
+            .device_manager
+            .lock()
+            .unwrap()
+            .with_device(|device| device.netlist())
+            .map_err(Error)?)
     }
 }
 
@@ -42,7 +44,8 @@ impl ResponseError for Error {
 
 #[get("/status")]
 async fn get_status(shared: web::Data<Shared>) -> Result<impl Responder> {
-    let status = shared.device_manager
+    let status = shared
+        .device_manager
         .lock()
         .unwrap()
         .status()
@@ -57,7 +60,8 @@ async fn get_nets(shared: web::Data<Shared>) -> Result<impl Responder> {
 
 #[put("/nets")]
 async fn put_nets(shared: web::Data<Shared>, json: web::Json<Vec<Net>>) -> Result<impl Responder> {
-    let netlist = shared.device_manager
+    let netlist = shared
+        .device_manager
         .lock()
         .unwrap()
         .with_device(|device| {
@@ -72,12 +76,15 @@ async fn put_nets(shared: web::Data<Shared>, json: web::Json<Vec<Net>>) -> Resul
 #[get("/nets/{index}")]
 async fn get_net(path: web::Path<u8>, shared: web::Data<Shared>) -> Result<impl Responder> {
     let index = path.into_inner();
-    Ok(web::Json(shared.netlist()?.into_iter().find(|net| net.index == index)))
+    Ok(web::Json(
+        shared.netlist()?.into_iter().find(|net| net.index == index),
+    ))
 }
 
 #[get("/supply_switch_pos")]
 async fn get_supply_switch_pos(shared: web::Data<Shared>) -> Result<impl Responder> {
-    let pos = shared.device_manager
+    let pos = shared
+        .device_manager
         .lock()
         .unwrap()
         .with_device(|device| device.supply_switch())
@@ -86,9 +93,13 @@ async fn get_supply_switch_pos(shared: web::Data<Shared>) -> Result<impl Respond
 }
 
 #[put("/supply_switch_pos/{pos}")]
-async fn set_supply_switch_pos(path: web::Path<String>, shared: web::Data<Shared>) -> Result<impl Responder> {
+async fn set_supply_switch_pos(
+    path: web::Path<String>,
+    shared: web::Data<Shared>,
+) -> Result<impl Responder> {
     let pos: SupplySwitchPos = path.into_inner().parse().map_err(Error)?;
-    shared.device_manager
+    shared
+        .device_manager
         .lock()
         .unwrap()
         .with_device(|device| device.set_supply_switch(pos))

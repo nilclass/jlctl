@@ -1,15 +1,18 @@
-use time::OffsetDateTime;
-use time::format_description::well_known::Iso8601;
+use crate::new_parser;
+use crate::types::{Bridgelist, Color, Message, Net, SupplySwitchPos};
 use anyhow::{Context, Result};
 use serialport::SerialPort;
-use std::sync::mpsc::{channel, Sender, Receiver};
-use std::time::Duration;
-use std::sync::{Arc, Mutex, atomic::{AtomicU32, Ordering}};
-use std::io::{Write, BufRead, BufReader};
 use std::fs::File;
+use std::io::{BufRead, BufReader, Write};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc, Mutex,
+};
 use std::thread::{spawn, JoinHandle};
-use crate::new_parser;
-use crate::types::{Message, Net, Bridgelist, Color, SupplySwitchPos};
+use std::time::Duration;
+use time::format_description::well_known::Iso8601;
+use time::OffsetDateTime;
 
 /// Represents a connection to a Jumperless device, on a fixed port.
 pub struct Device {
@@ -58,14 +61,18 @@ impl Instruction {
                 format!("::getnetlist:{}[]", sequence_number)
             }
             Instruction::SetNetlist(nets) => {
-                format!("::netlist:{}{}", sequence_number, serde_json::to_string(&nets).expect("serialize nets"))
+                format!(
+                    "::netlist:{}{}",
+                    sequence_number,
+                    serde_json::to_string(&nets).expect("serialize nets")
+                )
             }
             Instruction::GetBridgelist => {
                 format!("::getbridgelist:{}[]", sequence_number)
             }
             Instruction::SetBridgelist(bridgelist) => {
                 let mut line = format!("::bridgelist:{}[", sequence_number);
-                for (i, (a, b)) in bridgelist.into_iter().enumerate() {
+                for (i, (a, b)) in bridgelist.iter().enumerate() {
                     if i > 0 {
                         line += ",";
                     }
@@ -80,15 +87,22 @@ impl Instruction {
                 format!("::getsupplyswitch:{}[]", sequence_number)
             }
             Instruction::SetSupplySwitch(pos) => {
-                format!("::setsupplyswitch:{}[{}]", sequence_number, match pos {
-                    SupplySwitchPos::V8 => "8V",
-                    SupplySwitchPos::V3_3 => "3.3V",
-                    SupplySwitchPos::V5 => "5V",
-                })
+                format!(
+                    "::setsupplyswitch:{}[{}]",
+                    sequence_number,
+                    match pos {
+                        SupplySwitchPos::V8 => "8V",
+                        SupplySwitchPos::V3_3 => "3.3V",
+                        SupplySwitchPos::V5 => "5V",
+                    }
+                )
             }
             Instruction::Lightnet(net_name, color) => {
                 let color: u32 = (*color).into();
-                format!("::lightnet:{}[{}: 0x{:06x}]", sequence_number, net_name, color)
+                format!(
+                    "::lightnet:{}[{}: 0x{:06x}]",
+                    sequence_number, net_name, color
+                )
             }
         }
     }
@@ -112,7 +126,12 @@ impl Device {
             .open(log_path.as_str())
             .map(|f| Arc::new(Mutex::new(f)))
             .with_context(|| format!("Failed to open log file: {}", log_path))?;
-        let mut device = Self { port, log, reader: None, sequence: AtomicU32::new(0) };
+        let mut device = Self {
+            port,
+            log,
+            reader: None,
+            sequence: AtomicU32::new(0),
+        };
 
         device.start_reader_thread()?;
 
@@ -135,8 +154,12 @@ impl Device {
                 Received::Message(Message::Ok(_)) => break true,
                 Received::Message(Message::Error(_)) => break false,
                 Received::Message(message) => messages.push(message),
-                Received::Error(error) => return Err(anyhow::anyhow!("Received an error: {}", error)),
-                Received::Unrecognized(chunk) => return Err(anyhow::anyhow!("Received unparsable: {:?}", chunk)),
+                Received::Error(error) => {
+                    return Err(anyhow::anyhow!("Received an error: {}", error))
+                }
+                Received::Unrecognized(chunk) => {
+                    return Err(anyhow::anyhow!("Received unparsable: {:?}", chunk))
+                }
             }
         };
         Ok((success, messages))
@@ -167,14 +190,22 @@ impl Device {
         self.receive_ok_capture(sequence_number, |_| {})
     }
 
-    pub fn receive_ok_capture<F: FnMut(Message)>(&mut self, sequence_number: u32, mut capture: F) -> Result<()> {
+    pub fn receive_ok_capture<F: FnMut(Message)>(
+        &mut self,
+        sequence_number: u32,
+        mut capture: F,
+    ) -> Result<()> {
         loop {
             match self.receive() {
-                Received::Message(Message::Ok(Some(seq))) if seq == sequence_number => return Ok(()),
-                Received::Message(Message::Error(Some(seq))) if seq == sequence_number => return Err(anyhow::anyhow!("Received error response")),
+                Received::Message(Message::Ok(Some(seq))) if seq == sequence_number => {
+                    return Ok(())
+                }
+                Received::Message(Message::Error(Some(seq))) if seq == sequence_number => {
+                    return Err(anyhow::anyhow!("Received error response"))
+                }
                 Received::Message(message) => capture(message),
                 Received::Error(error) => return Err(anyhow::anyhow!("{:?}", error)),
-                _ => {},
+                _ => {}
             }
         }
     }
@@ -184,13 +215,17 @@ impl Device {
         let seq = self.send_instruction(Instruction::GetNetlist)?;
         let mut result = vec![];
         let mut begin = false;
-        self.receive_ok_capture(seq, |message| {
-            match message {
-                Message::NetlistBegin => { begin = true; },
-                Message::NetlistEnd => { begin = false; },
-                Message::Net(net) => { result.push(net); },
-                _ => {},
+        self.receive_ok_capture(seq, |message| match message {
+            Message::NetlistBegin => {
+                begin = true;
             }
+            Message::NetlistEnd => {
+                begin = false;
+            }
+            Message::Net(net) => {
+                result.push(net);
+            }
+            _ => {}
         })?;
         Ok(result)
     }
@@ -205,9 +240,8 @@ impl Device {
         let seq = self.send_instruction(Instruction::GetSupplySwitch)?;
         let mut result = None;
         self.receive_ok_capture(seq, |message| {
-            match message {
-                Message::SupplySwitch(pos) => result = Some(pos),
-                _ => {},
+            if let Message::SupplySwitch(pos) = message {
+                result = Some(pos);
             }
         })?;
         result.ok_or(anyhow::anyhow!("No ::supplyswitch message received!"))
@@ -264,7 +298,12 @@ impl Device {
         }
     }
 
-    fn reader_thread(port: Box<dyn SerialPort>, log: Arc<Mutex<File>>, sender: Sender<Received>, stop: Receiver<()>) {
+    fn reader_thread(
+        port: Box<dyn SerialPort>,
+        log: Arc<Mutex<File>>,
+        sender: Sender<Received>,
+        stop: Receiver<()>,
+    ) {
         let mut lines = BufReader::new(port).lines();
         _ = write_log(&log, "OPEN");
         loop {
@@ -285,7 +324,12 @@ impl Device {
                         // ignore timeout. It happens whenever the device does not send anything for a given amount of time.
                     } else {
                         eprintln!("ERROR: {:?}", err);
-                        sender.send(Received::Error(format!("Read from serial port failed: {:?}", err))).unwrap();
+                        sender
+                            .send(Received::Error(format!(
+                                "Read from serial port failed: {:?}",
+                                err
+                            )))
+                            .unwrap();
 
                         // terminate thread
                         return;
@@ -298,6 +342,11 @@ impl Device {
 
 fn write_log(log: &Arc<Mutex<File>>, line: &str) -> anyhow::Result<()> {
     let mut log = log.lock().expect("log mutex");
-    write!(log, "[{}] {}\n", OffsetDateTime::now_utc().format(&Iso8601::DEFAULT).unwrap(), line)?;
+    writeln!(
+        log,
+        "[{}] {}",
+        OffsetDateTime::now_utc().format(&Iso8601::DEFAULT).unwrap(),
+        line
+    )?;
     Ok(())
 }

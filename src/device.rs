@@ -233,7 +233,10 @@ impl Device {
 
     fn receive(&mut self) -> Received {
         let (_, recv, _) = self.reader.as_mut().expect("Reader thread");
-        recv.recv_timeout(std::time::Duration::from_millis(400)).expect("receive")
+        match recv.recv_timeout(std::time::Duration::from_millis(400)) {
+            Ok(received) => received,
+            _ => Received::Error("Timeout while receiving reply".to_string()),
+        }
     }
 
     pub fn clear_nodefile(&mut self) -> Result<()> {

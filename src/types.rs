@@ -14,6 +14,29 @@ pub struct Net {
     pub name: String,
 }
 
+/// this is the net format expected by the device, for `::netlist` input.
+/// It's currently different from the `Net` format used internally by jlctl.
+#[derive(Serialize)]
+pub struct TmpNet {
+    pub index: u8,
+    pub number: u8,
+    pub nodes: String,
+    pub special: bool,
+    pub color: Color,
+    pub machine: bool,
+    pub name: String,
+}
+
+impl From<Net> for TmpNet {
+    fn from(Net { index, number, nodes, special, color, machine, name }: Net) -> Self {
+        let node_strings: Vec<String> = nodes.into_iter().map(|node| node.to_string()).collect();
+        TmpNet {
+            index, number, special, color, machine, name,
+            nodes: node_strings.join(","),
+        }
+    }
+}
+
 /// A message received from the jumperless
 #[derive(Debug, Clone, PartialEq)]
 pub enum Message {

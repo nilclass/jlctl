@@ -61,6 +61,7 @@ impl Instruction {
                 format!("::getnetlist:{}[]", sequence_number)
             }
             Instruction::SetNetlist(nets) => {
+                let nets: Vec<crate::types::TmpNet> = nets.into_iter().map(|net| net.clone().into()).collect();
                 format!(
                     "::netlist:{}{}",
                     sequence_number,

@@ -19,6 +19,10 @@ serde_json = "1.0.108"
 serialport = "4.2.2"
 shadow-rs = "0.25.0"
 time = "0.3.31"
+web-view = { version = "0.7.3", optional = true }
+
+[features]
+desktop-app = ["web-view"]
 
 [build-dependencies]
 shadow-rs = "0.25.0"

@@ -26,12 +26,12 @@ impl DeviceManager {
     /// [`PortRole::JumperlessPrimary`] is used.
     pub fn new(path: Option<String>) -> Self {
         if path.is_some() {
-            log::info!(
+            debug!(
                 "Initialize DeviceManager, with fixed port {}",
                 path.as_ref().unwrap()
             );
         } else {
-            log::info!("Initialize DeviceManager, with dynamic port detection");
+            debug!("Initialize DeviceManager, with dynamic port detection");
         }
         Self { path, device: None }
     }
@@ -62,7 +62,7 @@ impl DeviceManager {
         if self.device.is_some() && self.device.as_ref().unwrap().is_alive() {
             Ok(self.device.as_mut().unwrap())
         } else {
-            log::info!("Attempting to open device");
+            debug!("Attempting to open device");
             self.open()
         }
     }

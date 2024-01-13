@@ -28,10 +28,25 @@ pub struct TmpNet {
 }
 
 impl From<Net> for TmpNet {
-    fn from(Net { index, number, nodes, special, color, machine, name }: Net) -> Self {
+    fn from(
+        Net {
+            index,
+            number,
+            nodes,
+            special,
+            color,
+            machine,
+            name,
+        }: Net,
+    ) -> Self {
         let node_strings: Vec<String> = nodes.into_iter().map(|node| node.to_string()).collect();
         TmpNet {
-            index, number, special, color, machine, name,
+            index,
+            number,
+            special,
+            color,
+            machine,
+            name,
             nodes: node_strings.join(","),
         }
     }

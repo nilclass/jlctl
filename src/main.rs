@@ -11,10 +11,10 @@ shadow!(build);
 
 mod device;
 mod device_manager;
+mod new_parser;
 mod server;
 mod types;
 mod validate;
-mod new_parser;
 
 #[cfg(feature = "desktop-app")]
 mod desktop_app;
@@ -38,7 +38,15 @@ struct Cli {
 enum Command {
     /// List serial ports
     #[command()]
-    ListPorts,
+    ListPorts {
+        /// Write to file instead of stdout
+        #[arg(long, short)]
+        file: Option<String>,
+
+        /// Output format
+        #[arg(long, short, value_enum, default_value = "table")]
+        output_format: OutputFormat,
+    },
 
     /// Identify primary Jumperless port
     #[command()]
@@ -162,22 +170,35 @@ fn main() -> anyhow::Result<()> {
 
     let mut device_manager = device_manager::DeviceManager::new(args.port);
 
-    if let Command::ListPorts = args.command {
+    if let Command::ListPorts {
+        file,
+        output_format,
+    } = args.command
+    {
         let ports = device_manager.list_ports()?;
-        let mut table = Table::new();
-        table
-            .load_preset(UTF8_FULL)
-            .apply_modifier(UTF8_ROUND_CORNERS)
-            .set_header(vec!["Port Name", "USB ID", "Role"]);
-        for port in ports {
-            let (vid, pid) = port.usb_id();
-            table.add_row(vec![
-                port.info.port_name,
-                format!("{:04x}:{:04x}", vid, pid),
-                format!("{:?}", port.role),
-            ]);
+        let mut output = file_or_stdout(file)?;
+        match output_format {
+            OutputFormat::Table => {
+                let mut table = Table::new();
+                table
+                    .load_preset(UTF8_FULL)
+                    .apply_modifier(UTF8_ROUND_CORNERS)
+                    .set_header(vec!["Port Name", "USB ID", "Role"]);
+                for port in ports {
+                    let (vid, pid) = port.usb_id();
+                    table.add_row(vec![
+                        port.info.port_name,
+                        format!("{:04x}:{:04x}", vid, pid),
+                        format!("{:?}", port.role),
+                    ]);
+                }
+                writeln!(&mut output, "{}", table)?;
+            }
+            OutputFormat::Json => {
+                serde_json::to_writer_pretty(&mut output, &ports)?;
+                output.write_all(b"\n")?;
+            }
         }
-        println!("{table}");
         return Ok(());
     }
 
@@ -203,7 +224,7 @@ fn main() -> anyhow::Result<()> {
     #[cfg(feature = "desktop-app")]
     if let Command::DesktopApp {} = args.command {
         desktop_app::run()?;
-        return Ok(())
+        return Ok(());
     }
 
     device_manager.with_device(|device| {

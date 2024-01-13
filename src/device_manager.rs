@@ -173,6 +173,7 @@ impl DeviceManager {
 }
 
 /// A serial port that was found by [`DeviceManager::list_ports`]
+#[derive(Serialize)]
 pub struct FoundPort {
     /// The original port info
     pub info: SerialPortInfo,
@@ -191,7 +192,7 @@ impl FoundPort {
 }
 
 /// A role, used in [FoundPort]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub enum PortRole {
     /// No idea what this device is
     Unknown,

@@ -6,7 +6,7 @@
 
 ### Binary release
 
-Check the [Releases](https://github.com/nilclass/jumperlab/releases) page for binary releases, and follow instructions from there.
+Check the [Releases](https://github.com/nilclass/jlctl/releases) page for binary releases, and follow instructions from there.
 
 ### From source
 

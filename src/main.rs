@@ -67,6 +67,8 @@ enum Command {
     Net(NetCommand),
 
     /// Interact with bridges
+    ///
+    /// A bridge is a connection between two nodes on the Jumperless.
     #[command(subcommand, alias = "bridges")]
     Bridge(BridgeCommand),
 
@@ -117,7 +119,7 @@ enum NetCommand {
         output_format: OutputFormat,
     },
 
-    /// Upload list of nets to the Jumperless
+    /// Upload list of nets (in JSON format) to the Jumperless
     #[command()]
     Send {
         /// Read from file instead of stdin
@@ -142,15 +144,33 @@ enum BridgeCommand {
         /// Write to file instead of stdout
         #[arg(long, short)]
         file: Option<String>,
+
+        /// Output format
+        #[arg(long, short, value_enum, default_value = "list")]
+        output_format: BridgeOutputFormat,
     },
 
     /// Upload new list of bridges to the Jumperless
     ///
-    /// Either `--file` or `--bridges` must be specified (but not both).
+    /// Either `--file` or `[bridges]` must be specified (but not both).
     #[command()]
     Set {
         /// Bridge(s) to add, e.g. "GND-17" or "12-17,14-29"
+        #[arg()]
+        bridges: Option<String>,
+
+        /// Read bridges from file
         #[arg(long, short)]
+        file: Option<String>,
+    },
+
+    /// Add one or more bridges to the current netlist
+    ///
+    /// Either `--file` or `[bridges]` must be specified (but not both).
+    #[command()]
+    Add {
+        /// Bridge(s) to add, e.g. "GND-17" or "12-17,14-29"
+        #[arg()]
         bridges: Option<String>,
 
         /// Read bridges from file
@@ -161,6 +181,14 @@ enum BridgeCommand {
     /// Upload empty list of bridges to the jumperless
     #[command()]
     Clear,
+}
+
+#[derive(ValueEnum, Copy, Clone, PartialEq, Debug)]
+enum BridgeOutputFormat {
+    #[value()]
+    List,
+    #[value()]
+    Json,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -291,22 +319,35 @@ fn main() -> anyhow::Result<()> {
             },
 
             Command::Bridge(bridge_command) => match bridge_command {
-                BridgeCommand::List { file } => {
+                BridgeCommand::List { file, output_format } => {
                     let mut output = file_or_stdout(file)?;
                     let bridgelist = device.bridgelist()?;
-                    serde_json::to_writer_pretty(&mut output, &bridgelist)?;
-                    output.write_all(b"\n")?;
+                    match output_format {
+                        BridgeOutputFormat::List => {
+                            for (i, (a, b)) in bridgelist.into_iter().enumerate() {
+                                if i > 0 {
+                                    write!(&mut output, ",")?;
+                                }
+                                write!(&mut output, "{}-{}", a, b)?;
+                            }
+                            output.write_all(b"\n")?;
+                        }
+                        BridgeOutputFormat::Json => {
+                            serde_json::to_writer_pretty(&mut output, &bridgelist)?;
+                            output.write_all(b"\n")?;
+                        }
+                    }
                 }
                 BridgeCommand::Set { bridges, file } => {
                     let source = match (bridges, file) {
                         (None, None) => {
                             return Err(anyhow::anyhow!(
-                                "Either `--bridges` or `--file` must be given"
+                                "Either `[bridges]` or `--file` must be given"
                             ))
                         }
                         (Some(_), Some(_)) => {
                             return Err(anyhow::anyhow!(
-                                "Cannot accept `--bridges` together with `--file`"
+                                "Cannot accept `[bridges]` together with `--file`"
                             ))
                         }
                         (Some(bridges), _) => bridges,
@@ -323,7 +364,41 @@ fn main() -> anyhow::Result<()> {
                     };
                     device.set_bridgelist(bridgelist)?;
                 }
-                _ => todo!(),
+                BridgeCommand::Add { bridges, file } => {
+                    let source = match (bridges, file) {
+                        (None, None) => {
+                            return Err(anyhow::anyhow!(
+                                "Either `[bridges]` or `--file` must be given"
+                            ))
+                        }
+                        (Some(_), Some(_)) => {
+                            return Err(anyhow::anyhow!(
+                                "Cannot accept `[bridges]` together with `--file`"
+                            ))
+                        }
+                        (Some(bridges), _) => bridges,
+                        (_, Some(file)) => std::fs::read_to_string(file)?,
+                    };
+
+                    let bridgelist = if source.starts_with('[') {
+                        serde_json::from_str(&source).expect("parse bridgelist as JSON")
+                    } else {
+                        let (_, bridgelist) =
+                            nom::combinator::all_consuming(parser::bridges)(&source)
+                                .expect("parse bridgelist");
+                        bridgelist
+                    };
+                    let mut combined = device.bridgelist()?;
+                    for bridge in bridgelist {
+                        if !combined.contains(&bridge) {
+                            combined.push(bridge);
+                        }
+                    }
+                    device.set_bridgelist(combined)?;
+                }
+                BridgeCommand::Clear => {
+                    device.set_bridgelist(vec![])?;
+                }
             },
             _ => unreachable!(),
         }

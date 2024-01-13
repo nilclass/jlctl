@@ -40,7 +40,30 @@ $ jlctl list-ports
 ╰──────────────┴───────────┴───────────────────╯
 ```
 
-### Help
+If you see a port with role "JumperlessPrimary", you're good to go.
+
+
+Connect some rows together:
+```
+$ jlctl bridge set 3-7,14-2
+```
+
+Rows 3, 7, 14 and 2 should be lit up on your board now.
+
+Retrieve the current list of bridges:
+```
+$ jlctl bridge list
+3-7,14-2
+```
+
+Retrieve the list of nets:
+```
+$ jlctl net list
+```
+
+### Built-in Help
+
+Use the `help` command to get a list of commands and options:
 
 ```
 $ jlctl help
@@ -66,7 +89,7 @@ Options:
   -V, --version              Print version
 ```
 
-To get help for a subcommand, run `jlctl help <command>`, e.g.
+To get help for a specific command, run `jlctl help <command>`, e.g.
 ```
 $ jlctl help bridge
 Interact with bridges
@@ -83,6 +106,7 @@ Options:
   -h, --help  Print help
 ```
 
+This works for subcommands as well:
 ```
 $ jctl help bridge list
 Download list of bridges from the Jumperless

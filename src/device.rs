@@ -1,4 +1,4 @@
-use crate::new_parser;
+use crate::parser;
 use crate::types::{Bridgelist, Color, Message, Net, SupplySwitchPos};
 use anyhow::{Context, Result};
 use serialport::SerialPort;
@@ -30,7 +30,7 @@ enum Received {
 }
 
 fn parse_received(line: String) -> Received {
-    match new_parser::message(&line) {
+    match parser::message(&line) {
         Ok((_, message)) => Received::Message(message),
         Err(err) => {
             eprintln!("Error recognizing line: {:?}: {:?}", line, err);

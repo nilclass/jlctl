@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::new_parser;
+use crate::parser;
 
 /// Represents a named set of connected Nodes
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -129,7 +129,7 @@ impl TryFrom<String> for Color {
             .trim_start_matches("0x")
             .trim_start_matches("0X")
             .trim_start_matches('#');
-        let (_, color) = new_parser::color(trimmed)
+        let (_, color) = parser::color(trimmed)
             .map_err(|e| anyhow::anyhow!("Failed to parse color: {:?}", e))?;
         Ok(color)
     }
@@ -170,7 +170,7 @@ impl<'de> serde::de::Visitor<'de> for ColorVisitor {
             return Err(E::custom("Invalid color, expected to start with '#'"));
         }
         let (_, color) =
-            new_parser::color(&v[1..]).map_err(|e| E::custom(format!("Error: {:?}", e)))?;
+            parser::color(&v[1..]).map_err(|e| E::custom(format!("Error: {:?}", e)))?;
         Ok(color)
     }
 }

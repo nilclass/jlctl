@@ -11,7 +11,7 @@ shadow!(build);
 
 mod device;
 mod device_manager;
-mod new_parser;
+mod parser;
 mod server;
 mod types;
 mod validate;
@@ -317,7 +317,7 @@ fn main() -> anyhow::Result<()> {
                         serde_json::from_str(&source).expect("parse bridgelist as JSON")
                     } else {
                         let (_, bridgelist) =
-                            nom::combinator::all_consuming(new_parser::bridges)(&source)
+                            nom::combinator::all_consuming(parser::bridges)(&source)
                                 .expect("parse bridgelist");
                         bridgelist
                     };

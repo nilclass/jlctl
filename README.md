@@ -171,3 +171,29 @@ It then keeps that device open and uses it for subsequent requests.
 If any request fails to communicate with the device, that request will fail (with status 502),
 but subsequent requests will try to open the device again.
 
+## Embedded Jumperlab
+
+`jlctl` can be built with the [jumperlab UI](https://github.com/nilclass/jumperlab) included.
+The UI will be pre-built, and included within the `jlctl` binary as a ZIP. This way both projects can be distributed as a single binary.
+
+To build jlctl with jumperlab, take these steps:
+1. Check out / update the jumperlab submodule, with:
+   ```
+   git submodule update --init
+   ```
+2. Build jlctl with the `jumperlab` feature
+   ```
+   cargo build --features jumperlab
+   ```
+
+The resulting build will server jumperlab on the `/jumperlab` path, when running in server mode.
+A link to open jumperlab is also printed during server startup:
+```
+$ target/release/jlctl server
+[2024-01-28T20:36:25Z INFO  jlctl::server] Starting HTTP server, listening on localhost:8080
+[2024-01-28T20:36:25Z INFO  actix_server::builder] starting 1 workers
+[2024-01-28T20:36:25Z INFO  actix_server::server] Actix runtime found; starting in Actix runtime
+
+    To open Jumperlab, visit: http://localhost:8080/jumperlab
+
+```

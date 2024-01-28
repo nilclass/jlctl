@@ -5,12 +5,16 @@ use crate::{
 };
 use actix_cors::Cors;
 use actix_web::{
-    get, http, middleware::Logger, post, put, web, App, HttpResponse, HttpServer, Responder,
+    get, http, middleware::{Logger, NormalizePath}, post, put, web, App, HttpResponse, HttpServer, Responder,
     ResponseError, Result,
 };
 use log::info;
 use serde_json::json;
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}};
+use std::net::TcpListener;
+
+#[cfg(feature = "jumperlab")]
+mod jumperlab;
 
 struct Shared {
     device_manager: Arc<Mutex<DeviceManager>>,
@@ -172,11 +176,21 @@ async fn clear_bridges(shared: web::Data<Shared>) -> Result<impl Responder> {
     Ok(web::Json(true))
 }
 
+pub fn start(device_manager: DeviceManager, listen_address: Option<&str>) -> std::io::Result<String> {
+    let listener = TcpListener::bind(listen_address.unwrap_or("localhost:0"))?;
+    let address = listener.local_addr()?.to_string();
+    start_with_listener(device_manager, listener)?;
+    Ok(address)
+}
+
 #[actix_web::main]
-pub async fn start(device_manager: DeviceManager, listen_address: &str) -> std::io::Result<()> {
+async fn start_with_listener(device_manager: DeviceManager, listener: TcpListener) -> std::io::Result<()> {
     let device_manager = Arc::new(Mutex::new(device_manager));
 
-    info!("Starting HTTP server, listening on {:?}", listen_address);
+    let address = listener.local_addr()?;
+    let ip = address.ip();
+    let listen_address = format!("{}:{}", if ip.is_loopback() { "localhost".to_string() } else { ip.to_string() }, address.port());
+    info!("Starting HTTP server, listening on {}", listen_address);
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -188,9 +202,10 @@ pub async fn start(device_manager: DeviceManager, listen_address: &str) -> std::
             .allowed_header(http::header::CONTENT_TYPE)
             .max_age(3600);
 
-        App::new()
+        let app = App::new()
             .wrap(Logger::default())
             .wrap(cors)
+            .wrap(NormalizePath::trim())
             .app_data(web::Data::new(Shared {
                 device_manager: Arc::clone(&device_manager),
             }))
@@ -200,13 +215,19 @@ pub async fn start(device_manager: DeviceManager, listen_address: &str) -> std::
             .service(put_nets)
             .service(set_supply_switch_pos)
             .service(get_supply_switch_pos)
-            // .service(bridges)
-            // .service(add_bridges)
-            // .service(remove_bridges)
-            .service(clear_bridges)
+            .service(clear_bridges);
+
+        #[cfg(feature = "jumperlab")]
+        {
+            println!("\n    To open Jumperlab, visit: http://{}/jumperlab\n", listen_address);
+            return jumperlab::add_to_app(app);
+        }
+
+        #[allow(unreachable_code)]
+        app
     })
     .workers(1)
-    .bind(listen_address)?
+    .listen(listener)?
     .run()
     .await
 }

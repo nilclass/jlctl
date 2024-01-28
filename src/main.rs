@@ -16,9 +16,6 @@ mod server;
 mod types;
 mod validate;
 
-#[cfg(feature = "desktop-app")]
-mod desktop_app;
-
 #[derive(Debug, Parser)]
 #[command(about = "CLI for the jumperless breadboard", version = build::CLAP_LONG_VERSION)]
 struct Cli {
@@ -95,14 +92,10 @@ enum Command {
     /// Start HTTP server
     #[command()]
     Server {
+        /// Address to listen on. Use `localhost:0` to pick a random port.
         #[arg(long, short, default_value = "localhost:8080")]
         listen: String,
     },
-
-    #[cfg(feature = "desktop-app")]
-    /// Start in desktop app mode
-    #[command()]
-    DesktopApp,
 }
 
 #[derive(Debug, Subcommand)]
@@ -245,13 +238,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     if let Command::Server { listen } = args.command {
-        server::start(device_manager, &listen).expect("Start server");
-        return Ok(());
-    }
-
-    #[cfg(feature = "desktop-app")]
-    if let Command::DesktopApp {} = args.command {
-        desktop_app::run()?;
+        server::start(device_manager, Some(&listen)).expect("Start server");
         return Ok(());
     }
 

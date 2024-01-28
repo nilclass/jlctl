@@ -306,7 +306,10 @@ fn main() -> anyhow::Result<()> {
             },
 
             Command::Bridge(bridge_command) => match bridge_command {
-                BridgeCommand::List { file, output_format } => {
+                BridgeCommand::List {
+                    file,
+                    output_format,
+                } => {
                     let mut output = file_or_stdout(file)?;
                     let bridgelist = device.bridgelist()?;
                     match output_format {

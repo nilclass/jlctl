@@ -5,13 +5,14 @@ use crate::{
 };
 use actix_cors::Cors;
 use actix_web::{
-    get, http, middleware::{Logger, NormalizePath}, post, put, web, App, HttpResponse, HttpServer, Responder,
-    ResponseError, Result,
+    get, http,
+    middleware::{Logger, NormalizePath},
+    post, put, web, App, HttpResponse, HttpServer, Responder, ResponseError, Result,
 };
 use log::info;
 use serde_json::json;
-use std::{sync::{Arc, Mutex}};
 use std::net::TcpListener;
+use std::sync::{Arc, Mutex};
 
 #[cfg(feature = "jumperlab")]
 mod jumperlab;
@@ -176,7 +177,10 @@ async fn clear_bridges(shared: web::Data<Shared>) -> Result<impl Responder> {
     Ok(web::Json(true))
 }
 
-pub fn start(device_manager: DeviceManager, listen_address: Option<&str>) -> std::io::Result<String> {
+pub fn start(
+    device_manager: DeviceManager,
+    listen_address: Option<&str>,
+) -> std::io::Result<String> {
     let listener = TcpListener::bind(listen_address.unwrap_or("localhost:0"))?;
     let address = listener.local_addr()?.to_string();
     start_with_listener(device_manager, listener)?;
@@ -184,12 +188,23 @@ pub fn start(device_manager: DeviceManager, listen_address: Option<&str>) -> std
 }
 
 #[actix_web::main]
-async fn start_with_listener(device_manager: DeviceManager, listener: TcpListener) -> std::io::Result<()> {
+async fn start_with_listener(
+    device_manager: DeviceManager,
+    listener: TcpListener,
+) -> std::io::Result<()> {
     let device_manager = Arc::new(Mutex::new(device_manager));
 
     let address = listener.local_addr()?;
     let ip = address.ip();
-    let listen_address = format!("{}:{}", if ip.is_loopback() { "localhost".to_string() } else { ip.to_string() }, address.port());
+    let listen_address = format!(
+        "{}:{}",
+        if ip.is_loopback() {
+            "localhost".to_string()
+        } else {
+            ip.to_string()
+        },
+        address.port()
+    );
     info!("Starting HTTP server, listening on {}", listen_address);
 
     HttpServer::new(move || {
@@ -219,11 +234,14 @@ async fn start_with_listener(device_manager: DeviceManager, listener: TcpListene
 
         #[cfg(feature = "jumperlab")]
         {
-            println!("\n    To open Jumperlab, visit: http://{}/jumperlab\n", listen_address);
+            println!(
+                "\n    To open Jumperlab, visit: http://{}/jumperlab\n",
+                listen_address
+            );
             return jumperlab::add_to_app(app);
         }
 
-        #[allow(unreachable_code)]
+        #[allow(unreachable_code, clippy::let_and_return)]
         app
     })
     .workers(1)

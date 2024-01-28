@@ -1,0 +1,3 @@
+[submodule "jumperlab"]
+	path = jumperlab
+	url = https://github.com/nilclass/jumperlab

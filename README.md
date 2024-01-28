@@ -164,6 +164,8 @@ By default the server listens on `localhost:8080`. To change that, pass `--liste
 jlctl server --listen 0.0.0.0:12345
 ```
 
+Pass `0` as the port, to let the operating system choose a random one (e.g. `--listen localhost:0`).
+
 When run as a server, jlctl will try to open the device once the first request comes in.
 It then keeps that device open and uses it for subsequent requests.
 If any request fails to communicate with the device, that request will fail (with status 502),

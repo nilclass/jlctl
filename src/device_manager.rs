@@ -118,11 +118,11 @@ impl DeviceManager {
         let mut found = vec![];
 
         for (id, infos) in &mut by_usb_id {
-            let SerialPortType::UsbPort(UsbPortInfo { product, .. }) = &infos[0].port_type else {
+            let SerialPortType::UsbPort(UsbPortInfo { pid, .. }) = &infos[0].port_type else {
                 unreachable!()
             };
 
-            if product.is_some() && product.as_ref().unwrap() == "Jumperless" {
+            if *pid == 0xACAB as u16 || *pid == 0x1312 as u16 { //it's now matching based on PID, which I have changed, so update your firmware
                 // remove "tty" ports on Mac OS (only use the "cu" ones)
                 fixup_mac_ports(infos);
 
@@ -158,13 +158,33 @@ impl DeviceManager {
                         );
                     }
                 }
-            } else {
+            } else { //until serialport-rs supports product names, this just sets any connected ports, so hopefully you don't have anything else plugged in
+                let mut first = 0;
+
                 for info in infos {
-                    found.push(FoundPort {
-                        info: info.clone(),
-                        role: PortRole::Unknown,
-                    });
+
+                    if first == 0
+                    {
+                        found.push(FoundPort {
+                            info: info.clone(),
+                            // role: PortRole::JumperlessPrimary,
+    
+                            role: PortRole::Unknown,
+                        });
+                    
+                    first = 1;
+                    } else {
+                        found.push(FoundPort {
+                            info: info.clone(),
+                            // role: PortRole::JumperlessArduino,
+    
+                            role: PortRole::Unknown,
+                        });
+                    }
+
+
                 }
+                
             }
         }
 

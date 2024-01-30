@@ -1103,9 +1103,9 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "mach2"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d0d1830bcd151a6fc4aea1369af235b36c1528fe976b8ff678683c9995eade8"
+checksum = "19b955cdeb2a02b9117f121ce63aa52d08ade45de53e48fe6a38b39c10f6f709"
 dependencies = [
  "libc",
 ]
@@ -1476,7 +1476,7 @@ dependencies = [
 [[package]]
 name = "serialport"
 version = "4.3.1-alpha.0"
-source = "git+https://github.com/serialport/serialport-rs#819b64000e8c9758589443bc1af08e97a7bde2f2"
+source = "git+https://github.com/nilclass/serialport-rs?branch=try-windows-fix#b064fa93e9f63ffe3478f2c1861b684fa54cf67d"
 dependencies = [
  "bitflags 2.4.1",
  "cfg-if",
@@ -1767,9 +1767,9 @@ dependencies = [
 
 [[package]]
 name = "unescaper"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8f0f68e58d297ba8b22b8b5a96a87b863ba6bb46aaf51e19a4b02c5a6dd5b7f"
+checksum = "0adf6ad32eb5b3cadff915f7b770faaac8f7ff0476633aa29eb0d9584d889d34"
 dependencies = [
  "thiserror",
 ]

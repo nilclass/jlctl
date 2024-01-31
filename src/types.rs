@@ -217,6 +217,9 @@ pub enum Node {
     A7,
     RESET,
     AREF,
+    GPIO_0,
+    UART_Rx,
+    UART_Tx,
     Column(u8),
 }
 
@@ -271,6 +274,9 @@ impl Node {
                 "A7" => Ok(A7),
                 "RESET" => Ok(RESET),
                 "AREF" => Ok(AREF),
+                "GPIO_0" => Ok(GPIO_0),
+                "UART_Rx" => Ok(UART_Rx),
+                "UART_Tx" => Ok(UART_Tx),
 
                 // ALIASES: these are names used for the nodes in the netlist output.
                 //   They are not supported as input for nodefiles.
@@ -280,6 +286,12 @@ impl Node {
                 "DAC_1" => Ok(DAC1_8V),
                 "I_NEG" => Ok(I_N),
                 "I_POS" => Ok(I_P),
+                "ADC_0" => Ok(ADC0_5V),
+                "ADC_1" => Ok(ADC1_5V),
+                "ADC_2" => Ok(ADC2_5V),
+                "ADC_3" => Ok(ADC3_8V),
+                "GPIO_16" => Ok(UART_Rx),
+                "GPIO_17" => Ok(UART_Tx),
 
                 _ => Err(anyhow::anyhow!("Unknown node: {}", s)),
             }

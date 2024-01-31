@@ -293,7 +293,6 @@ impl Node {
                 "GPIO_16" => Ok(UART_Rx),
                 "GPIO_17" => Ok(UART_Tx),
 
-
                 _ => Err(anyhow::anyhow!("Unknown node: {}", s)),
             }
         }

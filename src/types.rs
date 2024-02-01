@@ -292,6 +292,11 @@ impl Node {
                 "ADC_3" => Ok(ADC3_8V),
                 "GPIO_16" => Ok(UART_Rx),
                 "GPIO_17" => Ok(UART_Tx),
+                "RST0" => Ok(RESET),
+                "n3v3" => Ok(SUPPLY_3V3),
+                "n5v" => Ok(SUPPLY_5V),
+                "ngnd0" => Ok(GND),
+                "ngnd1" => Ok(GND),
 
                 _ => Err(anyhow::anyhow!("Unknown node: {}", s)),
             }

@@ -269,7 +269,7 @@ impl Device {
 
     fn receive(&mut self) -> Received {
         let (_, recv, _) = self.reader.as_mut().expect("Reader thread");
-        match recv.recv_timeout(std::time::Duration::from_millis(400)) {
+        match recv.recv_timeout(std::time::Duration::from_millis(1800)) {
             Ok(received) => received,
             _ => Received::Error("Timeout while receiving reply".to_string()),
         }

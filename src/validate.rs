@@ -6,10 +6,10 @@ const SPECIAL_NETS: [(u8, &str, Node); 7] = [
     (1, "GND", Node::GND),
     (2, "+5V", Node::SUPPLY_5V),
     (3, "+3.3V", Node::SUPPLY_3V3),
-    (4, "DAC 0", Node::DAC0_5V),
-    (5, "DAC 1", Node::DAC1_8V),
-    (6, "I Sense +", Node::I_P),
-    (7, "I Sense -", Node::I_N),
+    (4, "DAC 0", Node::DAC0),
+    (5, "DAC 1", Node::DAC1),
+    (6, "I Sense +", Node::ISENSE_PLUS),
+    (7, "I Sense -", Node::ISENSE_MINUS),
 ];
 
 pub fn netlist(netlist: Vec<Net>) -> anyhow::Result<Vec<Net>> {

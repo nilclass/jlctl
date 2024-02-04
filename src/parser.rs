@@ -220,9 +220,9 @@ mod tests {
                     (GND, Column(32)),
                     (SUPPLY_5V, Column(7)),
                     (SUPPLY_5V, Column(15)),
-                    (SUPPLY_5V, A7),
+                    (SUPPLY_5V, NANO_A7),
                     (SUPPLY_3V3, Column(55)),
-                    (SUPPLY_3V3, A4),
+                    (SUPPLY_3V3, NANO_A4),
                     (Column(27), Column(8)),
                     (Column(27), Column(11)),
                     (Column(27), Column(20)),
@@ -287,7 +287,7 @@ mod tests {
                 Message::Net(Net {
                     index: 4,
                     number: 4,
-                    nodes: vec![Node::DAC0_5V],
+                    nodes: vec![Node::DAC0],
                     special: true,
                     color: Color([0x23, 0x11, 0x11]),
                     machine: false,
@@ -296,7 +296,7 @@ mod tests {
                 Message::Net(Net {
                     index: 5,
                     number: 5,
-                    nodes: vec![Node::DAC1_8V],
+                    nodes: vec![Node::DAC1],
                     special: true,
                     color: Color([0x23, 0x09, 0x13]),
                     machine: false,
@@ -305,7 +305,7 @@ mod tests {
                 Message::Net(Net {
                     index: 6,
                     number: 6,
-                    nodes: vec![Node::I_P],
+                    nodes: vec![Node::ISENSE_PLUS],
                     special: true,
                     color: Color([0x23, 0x23, 0x23]),
                     machine: false,
@@ -314,7 +314,7 @@ mod tests {
                 Message::Net(Net {
                     index: 7,
                     number: 7,
-                    nodes: vec![Node::I_N],
+                    nodes: vec![Node::ISENSE_MINUS],
                     special: true,
                     color: Color([0x23, 0x23, 0x23]),
                     machine: false,

@@ -239,7 +239,6 @@ impl Node {
         } else {
             use Node::*;
             match s {
-
                 // these are the canonical names
                 "GND" => Ok(GND),
                 "SUPPLY_5V" => Ok(SUPPLY_5V),
@@ -280,11 +279,8 @@ impl Node {
                 "RP_UART_Rx" => Ok(RP_UART_Rx),
                 "RP_UART_Tx" => Ok(RP_UART_Tx),
 
-
-
                 // ALIASES: these are names used for the nodes in the netlist output.
                 //   They are not supported as input for nodefiles.
-
                 "5V" => Ok(SUPPLY_5V),
                 "3V3" => Ok(SUPPLY_3V3),
                 "DAC0_5V" => Ok(DAC0),

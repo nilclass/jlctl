@@ -122,7 +122,10 @@ impl DeviceManager {
                 unreachable!()
             };
 
-            if (*vid, *pid) == (0x1d50, 0xACAB) || (*vid, *pid) == (0xACAB, 0x1312) || (*vid, *pid) == (0x1209, 0xACAB) {
+            if (*vid, *pid) == (0x1d50, 0xACAB)
+                || (*vid, *pid) == (0xACAB, 0x1312)
+                || (*vid, *pid) == (0x1209, 0xACAB)
+            {
                 //it's now matching based on PID, which I have changed, so update your firmware
                 // remove "tty" ports on Mac OS (only use the "cu" ones)
                 fixup_mac_ports(infos);

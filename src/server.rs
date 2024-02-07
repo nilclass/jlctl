@@ -112,6 +112,17 @@ async fn set_supply_switch_pos(
     Ok(web::Json(pos.to_string()))
 }
 
+#[get("/chip_status")]
+async fn get_chipstatus(shared: web::Data<Shared>) -> Result<impl Responder> {
+    let chipstatus = shared
+        .device_manager
+        .lock()
+        .unwrap()
+        .with_device(|device| device.chipstatus())
+        .map_err(Error)?;
+    Ok(web::Json(chipstatus))
+}
+
 // #[get("/bridges")]
 // async fn bridges(shared: web::Data<Shared>) -> Result<impl Responder> {
 //     let nodefile: NodeFile = shared
@@ -230,7 +241,8 @@ async fn start_with_listener(
             .service(put_nets)
             .service(set_supply_switch_pos)
             .service(get_supply_switch_pos)
-            .service(clear_bridges);
+            .service(clear_bridges)
+            .service(get_chipstatus);
 
         #[cfg(feature = "jumperlab")]
         {

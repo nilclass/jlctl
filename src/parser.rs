@@ -1,8 +1,8 @@
-use crate::types::{Bridgelist, Color, Message, Net, Node, SupplySwitchPos};
+use crate::types::{Bridgelist, ChipStatus, Color, Message, Net, Node, SupplySwitchPos};
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_till},
-    character::complete::{u32, u8},
+    character::complete::{anychar, i8, u32, u8},
     combinator::{all_consuming, map, map_res, value},
     multi::{separated_list0, separated_list1},
     sequence::{preceded, separated_pair, tuple},
@@ -19,6 +19,9 @@ pub fn message(input: &str) -> IResult<&str, Message> {
         map(net, Net),
         map(bridgelist, Bridgelist),
         map(supplyswitch, SupplySwitch),
+        map(chipstatus_begin, |_| ChipStatusBegin),
+        map(chipstatus_end, |_| ChipStatusEnd),
+        map(chipstatus, ChipStatus),
     )))(input)
 }
 
@@ -73,6 +76,37 @@ pub fn net(input: &str) -> IResult<&str, Net> {
             color,
             machine,
             name,
+        },
+    )(input)
+}
+
+pub fn chipstatus_begin(input: &str) -> IResult<&str, ()> {
+    value((), tag("::chipstatus-begin"))(input)
+}
+
+pub fn chipstatus_end(input: &str) -> IResult<&str, ()> {
+    value((), tag("::chipstatus-end"))(input)
+}
+
+pub fn chipstatus(input: &str) -> IResult<&str, ChipStatus> {
+    map(
+        tuple((
+            tag("::chipstatus["),
+            anychar,
+            tag(","),
+            separated_list1(tag(","), i8),
+            tag("]"),
+        )),
+        |(_, char, _, status, _)| {
+            let mut x_status = [0; 16];
+            let mut y_status = [0; 8];
+            x_status.copy_from_slice(&status[0..16]);
+            y_status.copy_from_slice(&status[16..24]);
+            ChipStatus {
+                char,
+                x_status,
+                y_status,
+            }
         },
     )(input)
 }

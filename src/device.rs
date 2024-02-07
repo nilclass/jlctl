@@ -1,5 +1,5 @@
 use crate::parser;
-use crate::types::{Bridgelist, Color, Message, Net, SupplySwitchPos};
+use crate::types::{Bridgelist, ChipStatus, Color, Message, Net, SupplySwitchPos};
 use anyhow::{Context, Result};
 use serialport::SerialPort;
 use std::fs::File;
@@ -48,6 +48,7 @@ enum Instruction {
     GetSupplySwitch,
     SetSupplySwitch(SupplySwitchPos),
     Lightnet(String, Color),
+    GetChipStatus,
     Raw(String, String),
 }
 
@@ -105,6 +106,10 @@ impl Instruction {
                     "::lightnet:{}[{}: 0x{:06x}]",
                     sequence_number, net_name, color
                 )
+            }
+
+            Instruction::GetChipStatus => {
+                format!("::getchipstatus:{}[]", sequence_number)
             }
         }
     }
@@ -252,6 +257,27 @@ impl Device {
     pub fn set_supply_switch(&mut self, pos: SupplySwitchPos) -> Result<()> {
         self.send_instruction(Instruction::SetSupplySwitch(pos))?;
         Ok(())
+    }
+
+    pub fn chipstatus(&mut self) -> Result<Vec<ChipStatus>> {
+        let seq = self.send_instruction(Instruction::GetChipStatus)?;
+        let mut result = vec![];
+        let mut begin = false;
+        self.receive_ok_capture(seq, |message| match message {
+            Message::ChipStatusBegin => {
+                begin = true;
+            }
+            Message::ChipStatus(chip_status) => {
+                if begin {
+                    result.push(chip_status);
+                }
+            }
+            Message::ChipStatusEnd => {
+                begin = false;
+            }
+            _ => {}
+        })?;
+        Ok(result)
     }
 
     pub fn lightnet(&mut self, name: String, color: Color) -> Result<()> {

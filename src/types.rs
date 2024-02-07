@@ -62,6 +62,9 @@ pub enum Message {
     Net(Net),
     Bridgelist(Bridgelist),
     SupplySwitch(SupplySwitchPos),
+    ChipStatusBegin,
+    ChipStatus(ChipStatus),
+    ChipStatusEnd,
 }
 
 pub type Bridgelist = Vec<(Node, Node)>;
@@ -390,4 +393,11 @@ impl std::fmt::Display for Node {
             named => write!(f, "{named:?}"),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct ChipStatus {
+    pub char: char,
+    pub x_status: [i8; 16],
+    pub y_status: [i8; 8],
 }

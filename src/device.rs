@@ -14,6 +14,9 @@ use std::time::Duration;
 use time::format_description::well_known::Iso8601;
 use time::OffsetDateTime;
 
+const PORT_TIMEOUT: Duration = Duration::from_millis(450);
+const RESPONSE_TIMEOUT: Duration = Duration::from_millis(4000);
+
 /// Represents a connection to a Jumperless device, on a fixed port.
 pub struct Device {
     port: Box<dyn SerialPort>,
@@ -124,7 +127,7 @@ impl Drop for Device {
 impl Device {
     pub fn new(port_path: String, log_path: String) -> Result<Self> {
         let port = serialport::new(port_path.as_str(), 57600)
-            .timeout(Duration::from_millis(100))
+            .timeout(PORT_TIMEOUT)
             .open()
             .with_context(|| format!("Failed to open serial port: {}", port_path))?;
         let log = File::options()
@@ -295,7 +298,7 @@ impl Device {
 
     fn receive(&mut self) -> Received {
         let (_, recv, _) = self.reader.as_mut().expect("Reader thread");
-        match recv.recv_timeout(std::time::Duration::from_millis(1800)) {
+        match recv.recv_timeout(RESPONSE_TIMEOUT) {
             Ok(received) => received,
             _ => Received::Error("Timeout while receiving reply".to_string()),
         }

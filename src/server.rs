@@ -65,17 +65,14 @@ async fn get_nets(shared: web::Data<Shared>) -> Result<impl Responder> {
 
 #[put("/nets")]
 async fn put_nets(shared: web::Data<Shared>, json: web::Json<Vec<Net>>) -> Result<impl Responder> {
-    let netlist = shared
+    shared
         .device_manager
         .lock()
         .unwrap()
-        .with_device(|device| {
-            device.set_netlist(validate::netlist(json.into_inner())?)?;
-            device.netlist()
-        })
+        .with_device(|device| device.set_netlist(validate::netlist(json.into_inner())?))
         .map_err(Error)?;
 
-    Ok(web::Json(netlist))
+    Ok(web::Json(true))
 }
 
 #[get("/nets/{index}")]

@@ -12,6 +12,7 @@ shadow!(build);
 mod device;
 mod device_manager;
 mod parser;
+#[cfg(feature = "server")]
 mod server;
 mod types;
 mod validate;
@@ -89,6 +90,7 @@ enum Command {
         color: String,
     },
 
+    #[cfg(feature = "server")]
     /// Start HTTP server
     #[command()]
     Server {
@@ -237,6 +239,7 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    #[cfg(feature = "server")]
     if let Command::Server { listen } = args.command {
         server::start(device_manager, Some(&listen)).expect("Start server");
         return Ok(());

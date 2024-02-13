@@ -72,6 +72,7 @@ impl DeviceManager {
         }
     }
 
+    #[allow(unused)]
     pub fn set_log_path(&mut self, log_path: String) {
         self.log_path = log_path;
     }

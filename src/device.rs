@@ -242,8 +242,8 @@ impl Device {
 
     /// Upload new list of nets
     pub fn set_netlist(&mut self, nets: Vec<Net>) -> Result<()> {
-        self.send_instruction(Instruction::SetNetlist(nets))?;
-        Ok(())
+        let seq = self.send_instruction(Instruction::SetNetlist(nets))?;
+        self.receive_ok(seq)
     }
 
     pub fn supply_switch(&mut self) -> Result<SupplySwitchPos> {
@@ -258,8 +258,8 @@ impl Device {
     }
 
     pub fn set_supply_switch(&mut self, pos: SupplySwitchPos) -> Result<()> {
-        self.send_instruction(Instruction::SetSupplySwitch(pos))?;
-        Ok(())
+        let seq = self.send_instruction(Instruction::SetSupplySwitch(pos))?;
+        self.receive_ok(seq)
     }
 
     pub fn chipstatus(&mut self) -> Result<Vec<ChipStatus>> {

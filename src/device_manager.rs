@@ -9,6 +9,7 @@ use std::collections::HashMap;
 pub struct DeviceManager {
     path: Option<String>,
     device: Option<Device>,
+    log_path: String,
 }
 
 #[derive(Serialize)]
@@ -33,7 +34,7 @@ impl DeviceManager {
         } else {
             debug!("Initialize DeviceManager, with dynamic port detection");
         }
-        Self { path, device: None }
+        Self { path, device: None, log_path: "log.txt".to_string() }
     }
 
     pub fn status(&mut self) -> Result<Status> {
@@ -67,9 +68,13 @@ impl DeviceManager {
         }
     }
 
+    pub fn set_log_path(&mut self, log_path: String) {
+        self.log_path = log_path;
+    }
+
     fn open(&mut self) -> Result<&mut Device> {
         let port_path = self.port_path()?;
-        let device = Device::new(port_path.clone(), "log.txt".to_string())?;
+        let device = Device::new(port_path.clone(), self.log_path.clone())?;
         self.device = Some(device);
         log::info!("Connected to jumperless on port {}", port_path);
         Ok(self.device.as_mut().unwrap())

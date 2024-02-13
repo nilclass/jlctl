@@ -34,7 +34,11 @@ impl DeviceManager {
         } else {
             debug!("Initialize DeviceManager, with dynamic port detection");
         }
-        Self { path, device: None, log_path: "log.txt".to_string() }
+        Self {
+            path,
+            device: None,
+            log_path: "log.txt".to_string(),
+        }
     }
 
     pub fn status(&mut self) -> Result<Status> {

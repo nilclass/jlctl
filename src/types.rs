@@ -183,7 +183,7 @@ impl<'de> serde::de::Visitor<'de> for ColorVisitor {
 /// A node is everything that can be connected to any other nodes
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Node {
     GND,
     SUPPLY_5V,

@@ -1,4 +1,4 @@
-use crate::device::Device;
+use crate::{device::Device, logger::DeviceLogger};
 use anyhow::{Context, Result};
 use log::{debug, error};
 use serde::Serialize;
@@ -6,10 +6,10 @@ use serialport::{SerialPortInfo, SerialPortType, UsbPortInfo};
 use std::collections::HashMap;
 
 /// Identifies and manages the jumperless [`Device`], to communicate with.
-pub struct DeviceManager {
+pub struct DeviceManager<L: DeviceLogger> {
     path: Option<String>,
-    device: Option<Device>,
-    log_path: String,
+    device: Option<Device<L>>,
+    logger: L,
 }
 
 #[derive(Serialize)]
@@ -17,7 +17,7 @@ pub struct Status {
     connected: bool,
 }
 
-impl DeviceManager {
+impl<L: DeviceLogger> DeviceManager<L> {
     /// Create a DeviceManager
     ///
     /// If `path` is given, it is the only serial port that will be used. The manager
@@ -25,7 +25,7 @@ impl DeviceManager {
     ///
     /// Otherwise [`DeviceManager::list_ports`] is called and the first port with role
     /// [`PortRole::JumperlessPrimary`] is used.
-    pub fn new(path: Option<String>) -> Self {
+    pub fn new(path: Option<String>, logger: L) -> Self {
         if path.is_some() {
             debug!(
                 "Initialize DeviceManager, with fixed port {}",
@@ -37,7 +37,7 @@ impl DeviceManager {
         Self {
             path,
             device: None,
-            log_path: "log.txt".to_string(),
+            logger,
         }
     }
 
@@ -49,7 +49,7 @@ impl DeviceManager {
     /// Attempts to open the device (if it is not already open) and passes it to the closure.
     /// If an error occurs, the device is forgotten, so the next call will try to open the
     /// device again.
-    pub fn with_device<T, F: FnOnce(&mut Device) -> Result<T>>(&mut self, f: F) -> Result<T> {
+    pub fn with_device<T, F: FnOnce(&mut Device<L>) -> Result<T>>(&mut self, f: F) -> Result<T> {
         f(self.device()?).map_err(|e| self.forget_device(e))
     }
 
@@ -63,7 +63,7 @@ impl DeviceManager {
         error
     }
 
-    fn device(&mut self) -> Result<&mut Device> {
+    fn device(&mut self) -> Result<&mut Device<L>> {
         if self.device.is_some() && self.device.as_ref().unwrap().is_alive() {
             Ok(self.device.as_mut().unwrap())
         } else {
@@ -72,14 +72,9 @@ impl DeviceManager {
         }
     }
 
-    #[allow(unused)]
-    pub fn set_log_path(&mut self, log_path: String) {
-        self.log_path = log_path;
-    }
-
-    fn open(&mut self) -> Result<&mut Device> {
+    fn open(&mut self) -> Result<&mut Device<L>> {
         let port_path = self.port_path()?;
-        let device = Device::new(port_path.clone(), self.log_path.clone())?;
+        let device = Device::new(port_path.clone(), self.logger.clone())?;
         self.device = Some(device);
         log::info!("Connected to jumperless on port {}", port_path);
         Ok(self.device.as_mut().unwrap())

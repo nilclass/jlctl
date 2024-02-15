@@ -11,6 +11,7 @@ shadow!(build);
 
 mod device;
 mod device_manager;
+pub mod logger;
 mod parser;
 #[cfg(feature = "server")]
 mod server;
@@ -191,7 +192,10 @@ fn main() -> anyhow::Result<()> {
 
     let args = Cli::parse();
 
-    let mut device_manager = device_manager::DeviceManager::new(args.port);
+    let mut device_manager = device_manager::DeviceManager::new(
+        args.port,
+        logger::FileLogger::new("log.txt").expect("open device log"),
+    );
 
     if let Command::ListPorts {
         file,

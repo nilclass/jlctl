@@ -1,5 +1,6 @@
 use crate::{
     device_manager::DeviceManager,
+    logger::FileLogger,
     types::{Net, SupplySwitchPos},
     validate,
 };
@@ -18,7 +19,7 @@ use std::sync::{Arc, Mutex};
 mod jumperlab;
 
 struct Shared {
-    device_manager: Arc<Mutex<DeviceManager>>,
+    device_manager: Arc<Mutex<DeviceManager<FileLogger>>>,
 }
 
 impl Shared {
@@ -186,7 +187,7 @@ async fn clear_bridges(shared: web::Data<Shared>) -> Result<impl Responder> {
 }
 
 pub fn start(
-    device_manager: DeviceManager,
+    device_manager: DeviceManager<FileLogger>,
     listen_address: Option<&str>,
 ) -> std::io::Result<String> {
     let listener = TcpListener::bind(listen_address.unwrap_or("localhost:0"))?;
@@ -197,7 +198,7 @@ pub fn start(
 
 #[actix_web::main]
 async fn start_with_listener(
-    device_manager: DeviceManager,
+    device_manager: DeviceManager<FileLogger>,
     listener: TcpListener,
 ) -> std::io::Result<()> {
     let device_manager = Arc::new(Mutex::new(device_manager));

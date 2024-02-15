@@ -1,26 +1,21 @@
+use crate::logger::DeviceLogger;
 use crate::parser;
 use crate::types::{Bridgelist, ChipStatus, Color, Message, Net, SupplySwitchPos};
 use anyhow::{Context, Result};
 use serialport::SerialPort;
-use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{
-    atomic::{AtomicU32, Ordering},
-    Arc, Mutex,
-};
 use std::thread::{spawn, JoinHandle};
 use std::time::Duration;
-use time::format_description::well_known::Iso8601;
-use time::OffsetDateTime;
 
 const PORT_TIMEOUT: Duration = Duration::from_millis(450);
 const RESPONSE_TIMEOUT: Duration = Duration::from_millis(4000);
 
 /// Represents a connection to a Jumperless device, on a fixed port.
-pub struct Device {
+pub struct Device<L: DeviceLogger> {
     port: Box<dyn SerialPort>,
-    log: Arc<Mutex<File>>,
+    logger: L,
     reader: Option<(JoinHandle<()>, Receiver<Received>, Sender<()>)>,
     sequence: AtomicU32,
 }
@@ -118,27 +113,22 @@ impl Instruction {
     }
 }
 
-impl Drop for Device {
+impl<L: DeviceLogger> Drop for Device<L> {
     fn drop(&mut self) {
         self.stop_reader_thread();
     }
 }
 
-impl Device {
-    pub fn new(port_path: String, log_path: String) -> Result<Self> {
+impl<L: DeviceLogger> Device<L> {
+    pub fn new(port_path: String, logger: L) -> Result<Self> {
         let port = serialport::new(port_path.as_str(), 57600)
             .timeout(PORT_TIMEOUT)
             .open()
             .with_context(|| format!("Failed to open serial port: {}", port_path))?;
-        let log = File::options()
-            .create(true)
-            .append(true)
-            .open(log_path.as_str())
-            .map(|f| Arc::new(Mutex::new(f)))
-            .with_context(|| format!("Failed to open log file: {}", log_path))?;
+        logger.open(port_path.as_str());
         let mut device = Self {
             port,
-            log,
+            logger,
             reader: None,
             sequence: AtomicU32::new(0),
         };
@@ -291,7 +281,7 @@ impl Device {
     fn send_instruction(&mut self, instruction: Instruction) -> Result<u32> {
         let sequence_number = self.sequence.fetch_add(1, Ordering::SeqCst) + 1;
         let msg = instruction.generate(sequence_number);
-        write_log(&self.log, &format!("SEND {}", msg))?;
+        self.logger.sent(&msg);
         write!(self.port, "{}\r\n", msg)?;
         Ok(sequence_number)
     }
@@ -311,11 +301,11 @@ impl Device {
 
     fn start_reader_thread(&mut self) -> Result<()> {
         let port = self.port.try_clone()?;
-        let log = self.log.clone();
+        let logger = self.logger.clone();
         let (send, recv) = channel();
         let (send_stop, recv_stop) = channel();
         self.reader = Some((
-            spawn(move || Device::reader_thread(port, log, send, recv_stop)),
+            spawn(move || Device::reader_thread(port, logger, send, recv_stop)),
             recv,
             send_stop,
         ));
@@ -331,12 +321,11 @@ impl Device {
 
     fn reader_thread(
         port: Box<dyn SerialPort>,
-        log: Arc<Mutex<File>>,
+        logger: L,
         sender: Sender<Received>,
         stop: Receiver<()>,
     ) {
         let mut lines = BufReader::new(port).lines();
-        _ = write_log(&log, "OPEN");
         loop {
             if let Ok(()) = stop.try_recv() {
                 return;
@@ -345,7 +334,7 @@ impl Device {
                 None => return,
                 Some(Ok(line)) => {
                     let line = line.trim_matches('\r').to_owned();
-                    _ = write_log(&log, &format!("REVC {}", line));
+                    logger.received(&line);
                     if line.starts_with("::") {
                         sender.send(parse_received(line)).unwrap();
                     }
@@ -369,15 +358,4 @@ impl Device {
             }
         }
     }
-}
-
-fn write_log(log: &Arc<Mutex<File>>, line: &str) -> anyhow::Result<()> {
-    let mut log = log.lock().expect("log mutex");
-    writeln!(
-        log,
-        "[{}] {}",
-        OffsetDateTime::now_utc().format(&Iso8601::DEFAULT).unwrap(),
-        line
-    )?;
-    Ok(())
 }

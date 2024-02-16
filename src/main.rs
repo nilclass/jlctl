@@ -12,6 +12,7 @@ shadow!(build);
 mod device;
 mod device_manager;
 pub mod logger;
+mod measurements;
 mod parser;
 #[cfg(feature = "server")]
 mod server;
@@ -99,6 +100,10 @@ enum Command {
         #[arg(long, short, default_value = "localhost:8080")]
         listen: String,
     },
+
+    #[command()]
+    /// Experimental measurement interface
+    DumpMeasurements,
 }
 
 #[derive(Debug, Subcommand)]
@@ -247,6 +252,10 @@ fn main() -> anyhow::Result<()> {
     if let Command::Server { listen } = args.command {
         server::start(device_manager, Some(&listen)).expect("Start server");
         return Ok(());
+    }
+
+    if let Command::DumpMeasurements = args.command {
+        measurements::dump_measurements().expect("Failed to dump measurements");
     }
 
     device_manager.with_device(|device| {

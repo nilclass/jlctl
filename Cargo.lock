@@ -1399,6 +1399,7 @@ checksum = "45fff149b6033f25e825cbb7b2c625a11ee8e6dac09264d49beb125e39aa97bf"
 dependencies = [
  "libc",
  "libusb1-sys",
+ "serde",
 ]
 
 [[package]]

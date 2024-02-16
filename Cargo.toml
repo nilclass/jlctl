@@ -23,7 +23,7 @@ shadow-rs = "0.25.0"
 time = "0.3.31"
 zip = { version = "0.6.6", optional = true }
 mime_guess = "2.0.4"
-rusb = "0.9.3"
+rusb = { version = "0.9.3", features = ["serde", "vendored"] }
 
 [build-dependencies]
 shadow-rs = "0.25.0"
